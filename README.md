@@ -1,4 +1,4 @@
-# CheapChatContext (`ccc`)
+# ReptClip (`ccc`)
 
 A fast, cross-platform CLI that turns a git repository into clean Markdown
 context for an LLM chat — and copies it straight to your clipboard.
@@ -6,7 +6,7 @@ context for an LLM chat — and copies it straight to your clipboard.
 ## Install
 
 ```bash
-pip install cheapchatcontext
+pip install reptclip
 ```
 
 ## Usage

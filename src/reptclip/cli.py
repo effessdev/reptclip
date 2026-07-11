@@ -1,4 +1,4 @@
-"""Command-line entry point for CheapChatContext (``ccc``)."""
+"""Command-line entry point for ReptClip (``ccc``)."""
 
 from __future__ import annotations
 
@@ -6,12 +6,12 @@ import argparse
 import sys
 from pathlib import Path
 
-from cheapchatcontext.clipboard import copy_to_clipboard
-from cheapchatcontext.config import read_config
-from cheapchatcontext.file_reader import read_file_content
-from cheapchatcontext.filters import filter_files
-from cheapchatcontext.git_files import get_git_tracked_files
-from cheapchatcontext.markdown_builder import build_markdown
+from reptclip.clipboard import copy_to_clipboard
+from reptclip.config import read_config
+from reptclip.file_reader import read_file_content
+from reptclip.filters import filter_files
+from reptclip.git_files import get_git_tracked_files
+from reptclip.markdown_builder import build_markdown
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:

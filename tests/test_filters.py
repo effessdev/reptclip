@@ -1,4 +1,4 @@
-from cheapchatcontext.filters import filter_files, matches_any
+from reptclip.filters import filter_files, matches_any
 
 
 def test_no_include_patterns_returns_nothing():

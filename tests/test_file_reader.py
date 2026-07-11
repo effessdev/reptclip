@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from cheapchatcontext.file_reader import MAX_FILE_SIZE_BYTES, read_file_content
+from reptclip.file_reader import MAX_FILE_SIZE_BYTES, read_file_content
 
 
 def test_reads_normal_text_file(tmp_path: Path):

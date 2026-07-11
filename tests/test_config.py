@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from cheapchatcontext.config import read_config
+from reptclip.config import read_config
 
 
 def test_missing_config_returns_empty_lists(tmp_path: Path):

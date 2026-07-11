@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from cheapchatcontext.git_files import get_git_tracked_files
+from reptclip.git_files import get_git_tracked_files
 
 
 @pytest.fixture

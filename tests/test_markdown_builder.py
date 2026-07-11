@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from cheapchatcontext.markdown_builder import build_markdown, build_project_structure
+from reptclip.markdown_builder import build_markdown, build_project_structure
 
 
 def fake_read_file(path: Path) -> str:
