@@ -1,0 +1,33 @@
+"""Reading include/exclude patterns from a ccc-config.toml file."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+try:
+    import tomllib  # Python 3.11+
+except ModuleNotFoundError:  # pragma: no cover - exercised on Python < 3.11
+    import tomli as tomllib  # type: ignore[no-redef]
+
+CONFIG_FILENAME = "ccc-config.toml"
+
+
+def read_config(root: Path) -> tuple[list[str], list[str]]:
+    """Read the `include` and `exclude` lists from `ccc-config.toml` in `root`.
+
+    Returns `([], [])` if the file doesn't exist. The file, if present, is
+    expected to look like:
+
+        include = ["src/**/*.py"]
+        exclude = ["src/generated/**"]
+    """
+    config_path = root / CONFIG_FILENAME
+    if not config_path.is_file():
+        return [], []
+
+    with config_path.open("rb") as f:
+        data = tomllib.load(f)
+
+    include = list(data.get("include", []))
+    exclude = list(data.get("exclude", []))
+    return include, exclude
