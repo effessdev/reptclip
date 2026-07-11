@@ -8,8 +8,8 @@ version = "0.1.0"
 description = "Generate Markdown context of a git repository and copy it straight to your clipboard, ready to paste into an LLM chat."
 readme = "README.md"
 requires-python = ">=3.9"
-license = { text = "MIT" }
-authors = [{ name = "Your Name" }]
+license = { text = "GPL-3.0" }
+authors = [{ name = "Faseeh Zaman F S" }]
 keywords = ["cli", "llm", "context", "git", "markdown", "clipboard"]
 classifiers = [
     "Environment :: Console",
@@ -21,10 +21,7 @@ classifiers = [
     "Topic :: Software Development",
     "Topic :: Utilities",
 ]
-dependencies = [
-    "pyperclip>=1.8",
-    "tomli>=2.0; python_version < '3.11'",
-]
+dependencies = ["pyperclip>=1.8", "tomli>=2.0; python_version < '3.11'"]
 
 [project.optional-dependencies]
 dev = ["pytest>=7.0"]

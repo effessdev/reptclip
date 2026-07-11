@@ -1,4 +1,4 @@
-# ReptClip (`ccc`)
+# ReptClip
 
 A fast, cross-platform CLI that turns a git repository into clean Markdown
 context for an LLM chat — and copies it straight to your clipboard.
@@ -11,7 +11,7 @@ pip install reptclip
 
 ## Usage
 
-Run `ccc` from the root of a git repository:
+Run `ccc` (copy context to clipboard) from the root of a git repository:
 
 ```bash
 ccc
