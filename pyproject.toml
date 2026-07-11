@@ -9,12 +9,12 @@ description = "Generate Markdown context of a git repository and copy it straigh
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "GPL-3.0" }
-authors = [{ name = "Faseeh Zaman F S" }]
+authors = [{ name = "EffessDev", email = "effessdev@gmail.com" }]
 keywords = ["cli", "llm", "context", "git", "markdown", "clipboard"]
 classifiers = [
     "Environment :: Console",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
@@ -30,8 +30,8 @@ dev = ["pytest>=7.0"]
 ccc = "reptclip.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/yourname/reptclip"
-Issues = "https://github.com/yourname/reptclip/issues"
+Homepage = "https://github.com/effessdev/reptclip"
+Issues = "https://github.com/effessdev/reptclip/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/reptclip"]
