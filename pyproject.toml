@@ -31,7 +31,6 @@ ccc = "reptclip.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/effessdev/reptclip"
-Issues = "https://github.com/effessdev/reptclip/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/reptclip"]

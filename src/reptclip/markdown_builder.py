@@ -35,5 +35,5 @@ def build_markdown(
     sections.extend(
         build_file_section(rel_path, root, read_file) for rel_path in filtered_files
     )
-    sections.append("# Prompt\n")
+    sections.append("# Prompt\n\n\n")
     return "\n".join(sections)
