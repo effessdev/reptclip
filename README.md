@@ -5,11 +5,25 @@ context for an LLM chat — and copies it straight to your clipboard.
 
 ## Install
 
+### Windows
+
+After installing python, run
+
 ```bash
 pip install reptclip
 ```
 
-Now, you can run the CLI using the command `ccc`.
+### Ubuntu
+
+```bash
+sudo apt update && sudo apt install pipx
+pipx install reptclip
+pipx ensurepath
+```
+
+---
+
+Now, we can run the CLI using the command `ccc`.
 
 > Note: We use this alias to make lauching this application quicker.
 
