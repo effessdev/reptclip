@@ -1,2 +1,7 @@
 include = ["AGENTS.md"]
 exclude = []
+
+[[presets]]
+name = "all"
+include = ["**"]
+exclude = []

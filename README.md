@@ -21,12 +21,6 @@ pipx install reptclip
 pipx ensurepath
 ```
 
----
-
-Now, we can run the CLI using the command `rrcc`.
-
-> Note: We use this alias to make lauching this application quicker.
-
 ## Basic Usage
 
 Run the `reptclip` command from the root of a git repository:
@@ -53,11 +47,10 @@ To also include the contents of specific files, pass include/exclude glob
 patterns (`*` and `**` are supported):
 
 ```bash
-rrcc -i src/**/*.cpp tests/**/*.cpp docs/ -e tests/VeryLargeTest.cpp
+rrcc -i src/**/*.py docs/ -e src/confidential.py
 ```
 
-This includes every `.cpp` file under `src/`, every `.cpp` file under
-`tests/`, and everything under `docs/`, while excluding one large test file.
+This includes every `.py` file in `src/` and everything under `docs/`, while excluding one specific `.py` file in `src`.
 Use quotes around any pattern that contains spaces.
 
 ### Config file
