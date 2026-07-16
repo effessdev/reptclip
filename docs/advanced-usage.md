@@ -7,10 +7,10 @@ You can use the `-i` or `--include` flag to specify the files to include and
 use relative paths or glob patterns to specify the files:
 
 ```bash
-rrcc -i src/**/*.py docs/ -e src/functions.py
+rrcc -i AGENTS.md src/**/*.py docs/ -e src/functions.py
 ```
 
-This includes every `.py` file in `src/` and everything under `docs/`,
+This includes `AGENTS.md`, every `.py` file in `src/` and everything under `docs/`,
 while excluding one specific `.py` file in `src` (`functions.py`).
 Use quotes around any pattern that contains spaces.
 
@@ -25,6 +25,12 @@ README.md
 docs/README.md
 src/functions.py
 src/main.py
+```
+
+# AGENTS.md
+
+```
+Contents of AGENTS.md
 ```
 
 # docs/README.md
