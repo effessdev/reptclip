@@ -23,16 +23,22 @@ pipx ensurepath
 
 ---
 
-Now, we can run the CLI using the command `ccc`.
+Now, we can run the CLI using the command `rrcc`.
 
 > Note: We use this alias to make lauching this application quicker.
 
 ## Basic Usage
 
-Run `ccc` (copy context to clipboard) from the root of a git repository:
+Run the `reptclip` command from the root of a git repository:
 
 ```bash
-ccc
+reptclip
+```
+
+Or you can also use its shorter alias `rrcc` (recommended), which can be typed using your left hand only:
+
+```bash
+rrcc
 ```
 
 This copies a Markdown snapshot of your project structure (every
@@ -47,7 +53,7 @@ To also include the contents of specific files, pass include/exclude glob
 patterns (`*` and `**` are supported):
 
 ```bash
-ccc -i src/**/*.cpp tests/**/*.cpp docs/ -e tests/VeryLargeTest.cpp
+rrcc -i src/**/*.cpp tests/**/*.cpp docs/ -e tests/VeryLargeTest.cpp
 ```
 
 This includes every `.cpp` file under `src/`, every `.cpp` file under
@@ -56,7 +62,7 @@ Use quotes around any pattern that contains spaces.
 
 ### Config file
 
-Instead of (or in addition to) CLI flags, drop a `ccc-config.toml` in your
+Instead of (or in addition to) CLI flags, drop a `rrcc-config.toml` in your
 project root:
 
 ```toml

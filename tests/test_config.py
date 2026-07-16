@@ -8,7 +8,7 @@ def test_missing_config_returns_empty_lists(tmp_path: Path):
 
 
 def test_reads_include_and_exclude(tmp_path: Path):
-    (tmp_path / "ccc-config.toml").write_text(
+    (tmp_path / "reptclip-config.toml").write_text(
         'include = ["src/**/*.py", "docs/"]\n'
         'exclude = ["src/generated/**"]\n'
     )
@@ -18,7 +18,7 @@ def test_reads_include_and_exclude(tmp_path: Path):
 
 
 def test_missing_keys_default_to_empty_lists(tmp_path: Path):
-    (tmp_path / "ccc-config.toml").write_text('include = ["a.py"]\n')
+    (tmp_path / "reptclip-config.toml").write_text('include = ["a.py"]\n')
     include, exclude = read_config(tmp_path)
     assert include == ["a.py"]
     assert exclude == []

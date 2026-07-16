@@ -27,7 +27,8 @@ dependencies = ["pyperclip>=1.8", "tomli>=2.0; python_version < '3.11'"]
 dev = ["pytest>=7.0"]
 
 [project.scripts]
-ccc = "reptclip.cli:main"
+reptclip = "reptclip.cli:main"
+rrcc = "reptclip.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/effessdev/reptclip"

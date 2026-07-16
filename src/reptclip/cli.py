@@ -1,4 +1,4 @@
-"""Command-line entry point for ReptClip (``ccc``)."""
+"""Command-line entry point for ReptClip."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ from reptclip.markdown_builder import build_markdown
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     """Parse CLI arguments. Kept separate from `run` so it's easy to test."""
     parser = argparse.ArgumentParser(
-        prog="ccc",
+        prog="reptclip",
         description=(
             "Generate a Markdown snapshot of a git repository's structure and "
             "chosen files, and copy it straight to the clipboard."
@@ -41,7 +41,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 
 def run(argv: list[str] | None = None) -> int:
-    """Run the full ccc program flow. Returns a process exit code."""
+    """Run the full reptclip program flow. Returns a process exit code."""
     args = parse_args(argv)
     root = Path.cwd()
 

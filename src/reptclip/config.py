@@ -1,4 +1,4 @@
-"""Reading include/exclude patterns from a ccc-config.toml file."""
+"""Reading include/exclude patterns from a reptclip-config.toml file."""
 
 from __future__ import annotations
 
@@ -9,11 +9,11 @@ try:
 except ModuleNotFoundError:  # pragma: no cover - exercised on Python < 3.11
     import tomli as tomllib  # type: ignore[no-redef]
 
-CONFIG_FILENAME = "ccc-config.toml"
+CONFIG_FILENAME = "reptclip-config.toml"
 
 
 def read_config(root: Path) -> tuple[list[str], list[str]]:
-    """Read the `include` and `exclude` lists from `ccc-config.toml` in `root`.
+    """Read the `include` and `exclude` lists from `reptclip-config.toml` in `root`.
 
     Returns `([], [])` if the file doesn't exist. The file, if present, is
     expected to look like:
