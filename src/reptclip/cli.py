@@ -37,6 +37,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         metavar="PATTERN",
         help="Glob patterns of files to exclude (supports * and **).",
     )
+    parser.add_argument(
+        "-p", "--preset",
+        nargs="+",
+        default=[],
+        metavar="PRESET",
+        help="Names of presets from reptclip-config.toml to apply.",
+    )
     subparsers = parser.add_subparsers(dest="command")
     subparsers.add_parser(
         "config",
@@ -71,9 +78,21 @@ def run(argv: list[str] | None = None) -> int:
         print("No git-tracked files found in the current directory.", file=sys.stderr)
         return 1
 
-    config_include, config_exclude = read_config(root)
+    config_include, config_exclude, config_presets = read_config(root)
     include_patterns = args.include + config_include
     exclude_patterns = args.exclude + config_exclude
+
+    for preset_name in args.preset:
+        matching_preset = next(
+            (preset for preset in config_presets if preset["name"] == preset_name),
+            None,
+        )
+        if matching_preset is None:
+            print(f"Error: preset '{preset_name}' was not found in {root / 'reptclip-config.toml'}.", file=sys.stderr)
+            return 1
+
+        include_patterns.extend(matching_preset["include"])
+        exclude_patterns.extend(matching_preset["exclude"])
 
     filtered_files = filter_files(tracked_files, include_patterns, exclude_patterns)
 

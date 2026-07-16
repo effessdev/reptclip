@@ -74,9 +74,23 @@ Example contents:
 ```toml
 include = ["AGENTS.md", "src/**/*.py", "docs/"]
 exclude = ["src/generated/**"]
+
+[[presets]]
+name = "all"
+include = ["**"]
+exclude = []
 ```
 
-Patterns from the CLI and the config file are combined.
+Patterns from the CLI and the config file are combined. If you define one or
+more presets in the config file, you can also apply them with `-p` or
+`--preset`:
+
+```bash
+rrcc -p all
+```
+
+The selected presets' include and exclude patterns are merged with the CLI and
+config file patterns before filtering.
 
 ## Notes
 
@@ -85,3 +99,9 @@ Patterns from the CLI and the config file are combined.
   `-i` or the config file — the project structure is always shown, though.
 - Binary files and files over 1 MB are automatically skipped (with a note
   in the output) instead of causing an error.
+
+## Contributing
+
+Thanks for considering contributing to this project!
+
+Please refer to the [Developer Documentation](/docs/dev/README.md) for setup instructions, coding standards, and our workflow.
