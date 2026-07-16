@@ -62,11 +62,17 @@ Use quotes around any pattern that contains spaces.
 
 ### Config file
 
-Instead of (or in addition to) CLI flags, drop a `rrcc-config.toml` in your
-project root:
+Instead of (or in addition to) CLI flags, drop a `reptclip-config.toml` in your
+project root. You can create a starter file with:
+
+```bash
+reptclip config
+```
+
+Example contents:
 
 ```toml
-include = ["src/**/*.py", "docs/"]
+include = ["AGENTS.md", "src/**/*.py", "docs/"]
 exclude = ["src/generated/**"]
 ```
 

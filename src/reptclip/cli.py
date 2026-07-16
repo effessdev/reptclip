@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 from reptclip.clipboard import copy_to_clipboard
-from reptclip.config import read_config
+from reptclip.config import read_config, write_default_config
 from reptclip.file_reader import read_file_content
 from reptclip.filters import filter_files
 from reptclip.git_files import get_git_tracked_files
@@ -37,6 +37,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         metavar="PATTERN",
         help="Glob patterns of files to exclude (supports * and **).",
     )
+    subparsers = parser.add_subparsers(dest="command")
+    subparsers.add_parser(
+        "config",
+        help="Create a default reptclip-config.toml file in the current directory.",
+    )
     return parser.parse_args(argv)
 
 
@@ -44,6 +49,11 @@ def run(argv: list[str] | None = None) -> int:
     """Run the full reptclip program flow. Returns a process exit code."""
     args = parse_args(argv)
     root = Path.cwd()
+
+    if getattr(args, "command", None) == "config":
+        config_path = write_default_config(root)
+        print(f"Created config file at {config_path}")
+        return 0
 
     try:
         tracked_files = get_git_tracked_files(root)
