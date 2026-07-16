@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "reptclip"
-version = "0.1.0"
+version = "1.0.0"
 description = "Generate Markdown context of a git repository and copy it straight to your clipboard, ready to paste into an LLM chat."
 readme = "README.md"
 requires-python = ">=3.9"
