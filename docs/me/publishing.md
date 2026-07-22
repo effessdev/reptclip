@@ -1,8 +1,11 @@
 # Publishing
 
-## 1. Update the version in pyproject.toml
+## 1. Update pyproject.toml
 
-Manually update the version number in `pyproject.toml`. The version is listed under `project`.
+Commonly updated:
+
+- Version number
+- Dependency list
 
 ## 2. Build the package
 
