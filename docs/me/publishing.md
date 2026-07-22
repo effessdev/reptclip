@@ -2,7 +2,7 @@
 
 ## 1. Update the version in pyproject.toml
 
-Manually update the version number in the file. The version is listed under `project`.
+Manually update the version number in `pyproject.toml`. The version is listed under `project`.
 
 ## 2. Build the package
 
