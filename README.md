@@ -153,9 +153,3 @@ config file patterns before filtering.
   `-i` or the config file — the project structure is always shown, though.
 - Binary files and files over 1 MB are automatically skipped (with a note
   in the output) instead of causing an error.
-
-## Contributing
-
-Thanks a lot for considering contributing to this project!
-
-Please refer to the [Developer Documentation](/docs/dev/README.md) if you need help setting things up. Hope you have a great day!
