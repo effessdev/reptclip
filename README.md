@@ -156,6 +156,6 @@ config file patterns before filtering.
 
 ## Contributing
 
-**Thanks a lot** for considering contributing to this project!
+Thanks a lot for considering contributing to this project!
 
 Please refer to the [Developer Documentation](/docs/dev/README.md) if you need help setting things up. Hope you have a great day!
