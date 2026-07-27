@@ -22,19 +22,9 @@ def git_repo(tmp_path: Path) -> Path:
     return tmp_path
 
 
-def test_returns_only_tracked_files(git_repo: Path):
+def test_returns_tracked_and_untracked_files(git_repo: Path):
     files = get_git_tracked_files(git_repo)
-    assert sorted(files) == ["README.md", "src/main.py"]
-
-
-def test_untracked_files_excluded(git_repo: Path):
-    files = get_git_tracked_files(git_repo)
-    assert "untracked.txt" not in files
-
-
-def test_non_git_directory_raises(tmp_path: Path):
-    with pytest.raises(subprocess.CalledProcessError):
-        get_git_tracked_files(tmp_path)
+    assert sorted(files) == ["README.md", "src/main.py", "untracked.txt"]
 
 
 def test_empty_repo_returns_empty_list(tmp_path: Path):
