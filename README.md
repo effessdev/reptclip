@@ -108,7 +108,15 @@ Contents of src/main.py
 ```
 
 # Prompt
+
+<- Cursor stays here, so you can start typing quickly
 ````
+
+If you want to include the contents all files, use
+
+```bash
+rrcc -i "**"
+```
 
 Binary files and files over 1 MB are automatically skipped
 (with a note in the output) instead of causing an error. Binary files are
