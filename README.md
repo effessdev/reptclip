@@ -3,6 +3,10 @@
 A fast, cross-platform CLI that turns a git repository into clean Markdown
 context for an LLM chat — and copies it straight to your clipboard.
 
+<p align="center">
+  <img src="preview.gif" alt="Preview" width="720">
+</p>
+
 ## Install
 
 ### Windows
