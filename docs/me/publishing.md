@@ -21,7 +21,7 @@ You will need a PyPI API token.
 hatch publish
 ```
 
-When asked for the username, type `__token__` (including underscores).
+Then paste your token.
 
 ## 4. Tag
 
