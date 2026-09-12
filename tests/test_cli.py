@@ -50,5 +50,5 @@ def test_run_combines_selected_preset_patterns(tmp_path: Path, monkeypatch) -> N
     exit_code = run(["-i", "README.md", "-p", "docs"])
 
     assert exit_code == 0
-    assert captured["include_patterns"] == ["README.md", "src/**", "docs/**"]
+    assert captured["include_patterns"] == ["src/**", "docs/**", "README.md"]
     assert captured["exclude_patterns"] == ["src/skip/**", "docs/skip/**"]

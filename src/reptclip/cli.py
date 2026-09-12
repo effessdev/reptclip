@@ -79,8 +79,8 @@ def run(argv: list[str] | None = None) -> int:
         return 1
 
     config_include, config_exclude, config_presets = read_config(root)
-    include_patterns = args.include + config_include
-    exclude_patterns = args.exclude + config_exclude
+    include_patterns = config_include.copy()
+    exclude_patterns = config_exclude.copy()
 
     for preset_name in args.preset:
         matching_preset = next(
@@ -93,6 +93,9 @@ def run(argv: list[str] | None = None) -> int:
 
         include_patterns.extend(matching_preset["include"])
         exclude_patterns.extend(matching_preset["exclude"])
+
+    include_patterns.extend(args.include)
+    exclude_patterns.extend(args.exclude)
 
     filtered_files = filter_files(tracked_files, include_patterns, exclude_patterns)
 

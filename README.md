@@ -68,9 +68,9 @@ right away after pasting into the chat box.
 
 ### Including file contents
 
-You can use the `-i` or `--include` flag to specify the files to include and
-`-e` or `--exclude` flag to specify certain files that you included. You can
-use relative paths or glob patterns to specify the files:
+You can use the `-i` or `--include` flag to specify files to include and the
+`-e` or `--exclude` flag to exclude files from the final selection. You can use
+relative paths or glob patterns to specify the files:
 
 ```bash
 rrcc -i AGENTS.md src/**/*.py docs/ -e src/functions.py
@@ -128,7 +128,7 @@ identified using extensions as well as file contents.
 
 ### Config file
 
-Instead of (or in addition to) CLI flags, drop a `reptclip-config.toml` in your
+You can store default include/exclude rules in a `reptclip-config.toml` in your
 project root. You can create a starter file with:
 
 ```bash
@@ -147,16 +147,22 @@ include = ["**"]
 exclude = []
 ```
 
-Patterns from the CLI and the config file are combined. If you define one or
-more presets in the config file, you can also apply them with `-p` or
-`--preset`:
+Pattern precedence is applied in this order:
+
+1. config includes
+2. config excludes
+3. preset includes
+4. preset excludes
+5. CLI includes
+6. CLI excludes
+
+In practice, config values act as the base layer, preset values extend them, and
+CLI flags take highest precedence for the final selection. You can apply a preset
+with `-p` or `--preset`:
 
 ```bash
 rrcc -p all
 ```
-
-The selected presets' include and exclude patterns are merged with the CLI and
-config file patterns before filtering.
 
 ### Notes
 
