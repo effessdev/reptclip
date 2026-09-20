@@ -58,11 +58,9 @@ src/main.py
 
 # Prompt
 
-
+<- Cursor stays here,
+   you can start typing quickly
 ````
-
-It also includes a prompt section at the end, so you can start typing your prompt
-right away after pasting into the chat box.
 
 ## Advanced Usage
 
@@ -112,8 +110,6 @@ Contents of src/main.py
 ```
 
 # Prompt
-
-<- Cursor stays here, so you can start typing quickly
 ````
 
 If you want to include the contents all files, use
