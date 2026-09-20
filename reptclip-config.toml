@@ -1,5 +1,7 @@
-include = ["AGENTS.md"]
+include = ["AGENTS.md", "**/*.py"]
 exclude = []
+output_file = ""  # relative path to write the output (leave empty to skip)
+copy_to_clipboard = true
 
 [[presets]]
 name = "all"

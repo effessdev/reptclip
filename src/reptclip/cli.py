@@ -78,7 +78,7 @@ def run(argv: list[str] | None = None) -> int:
         print("No git-tracked files found in the current directory.", file=sys.stderr)
         return 1
 
-    config_include, config_exclude, config_presets = read_config(root)
+    config_include, config_exclude, config_presets, config_output_file, config_copy_to_clipboard = read_config(root)
     include_patterns = config_include.copy()
     exclude_patterns = config_exclude.copy()
 
@@ -101,14 +101,38 @@ def run(argv: list[str] | None = None) -> int:
 
     markdown = build_markdown(tracked_files, filtered_files, root, read_file_content)
 
-    try:
-        copy_to_clipboard(markdown)
-    except Exception as exc:
-        print(f"Error: could not copy to clipboard: {exc}", file=sys.stderr)
-        return 1
+    # Optionally write to file if configured
+    if config_output_file:
+        try:
+            out_path = Path(config_output_file)
+            # treat relative paths as relative to cwd
+            if not out_path.is_absolute():
+                out_path = Path.cwd() / out_path
+            out_path.parent.mkdir(parents=True, exist_ok=True)
+            out_path.write_text(markdown, encoding="utf-8")
+            print(f"Wrote output to {out_path}")
+        except Exception as exc:
+            print(f"Error: could not write output file: {exc}", file=sys.stderr)
+            return 1
+
+    # Optionally copy to clipboard
+    if config_copy_to_clipboard:
+        try:
+            copy_to_clipboard(markdown)
+        except Exception as exc:
+            print(f"Error: could not copy to clipboard: {exc}", file=sys.stderr)
+            return 1
+
+    status_parts = []
+    if config_copy_to_clipboard:
+        status_parts.append("Copied to clipboard")
+    if config_output_file:
+        status_parts.append("Wrote to file")
+
+    status_note = ", ".join(status_parts) if status_parts else "Generated output"
 
     print(
-        f"Copied to clipboard: {len(filtered_files)} file(s) included, "
+        f"{status_note}: {len(filtered_files)} file(s) included, "
         f"{len(tracked_files)} file(s) in project structure, "
         f"{len(markdown)} characters total."
     )

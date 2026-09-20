@@ -13,6 +13,8 @@ def test_config_command_creates_default_config(tmp_path: Path, monkeypatch) -> N
     assert (tmp_path / "reptclip-config.toml").read_text(encoding="utf-8") == (
         'include = ["AGENTS.md", "**/*.py"]\n'
         "exclude = []\n"
+        'output_file = ""  # relative path to write the output (leave empty to skip)\n'
+        'copy_to_clipboard = true\n'
         "\n"
         '[[presets]]\n'
         'name = "all"\n'
