@@ -128,7 +128,7 @@ You can store default include/exclude rules in a `reptclip-config.toml` in your
 project root. You can create a starter file with:
 
 ```bash
-reptclip config
+reptclip init
 ```
 
 Example contents:

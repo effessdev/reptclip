@@ -1,4 +1,4 @@
-include = ["AGENTS.md", "**/*.py"]
+include = ["AGENTS.md"]
 exclude = []
 output_file = ""  # relative path to write the output (leave empty to skip)
 copy_to_clipboard = true

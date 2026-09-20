@@ -11,7 +11,7 @@ except ModuleNotFoundError:  # pragma: no cover - exercised on Python < 3.11
 
 CONFIG_FILENAME = "reptclip-config.toml"
 DEFAULT_CONFIG_TEMPLATE = (
-    'include = ["AGENTS.md", "**/*.py"]\n'
+    'include = ["AGENTS.md"]\n'
     'exclude = []\n'
     'output_file = ""  # relative path to write the output (leave empty to skip)\n'
     'copy_to_clipboard = true\n'

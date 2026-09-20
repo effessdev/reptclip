@@ -46,7 +46,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     subparsers = parser.add_subparsers(dest="command")
     subparsers.add_parser(
-        "config",
+        "init",
         help="Create a default reptclip-config.toml file in the current directory.",
     )
     return parser.parse_args(argv)
@@ -57,7 +57,7 @@ def run(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     root = Path.cwd()
 
-    if getattr(args, "command", None) == "config":
+    if getattr(args, "command", None) == "init":
         config_path = write_default_config(root)
         print(f"Created config file at {config_path}")
         return 0
