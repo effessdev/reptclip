@@ -25,8 +25,9 @@ def build_markdown(
     filtered_files: list[str],
     root: Path,
     read_file: ReadFileFunc,
+    prompt_tail: bool = True,
 ) -> str:
-    """Assemble the full markdown output: structure, file contents, prompt.
+    """Assemble the full markdown output: structure, file contents, optional prompt.
 
     `read_file` is injected so this function stays independent of any actual
     filesystem access, which makes it trivial to test.
@@ -35,5 +36,6 @@ def build_markdown(
     sections.extend(
         build_file_section(rel_path, root, read_file) for rel_path in filtered_files
     )
-    sections.append("# Prompt\n\n")
+    if prompt_tail:
+        sections.append("# Prompt\n\n")
     return "\n".join(sections)

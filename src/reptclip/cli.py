@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import inspect
 import sys
 from pathlib import Path
 
@@ -78,7 +79,14 @@ def run(argv: list[str] | None = None) -> int:
         print("No git-tracked files found in the current directory.", file=sys.stderr)
         return 1
 
-    config_include, config_exclude, config_presets, config_output_file, config_copy_to_clipboard = read_config(root)
+    (
+        config_include,
+        config_exclude,
+        config_presets,
+        config_output_file,
+        config_copy_to_clipboard,
+        config_prompt_tail,
+    ) = read_config(root)
     include_patterns = config_include.copy()
     exclude_patterns = config_exclude.copy()
 
@@ -99,7 +107,16 @@ def run(argv: list[str] | None = None) -> int:
 
     filtered_files = filter_files(tracked_files, include_patterns, exclude_patterns)
 
-    markdown = build_markdown(tracked_files, filtered_files, root, read_file_content)
+    if "prompt_tail" in inspect.signature(build_markdown).parameters:
+        markdown = build_markdown(
+            tracked_files,
+            filtered_files,
+            root,
+            read_file_content,
+            prompt_tail=config_prompt_tail,
+        )
+    else:
+        markdown = build_markdown(tracked_files, filtered_files, root, read_file_content)
 
     # Optionally write to file if configured
     if config_output_file:

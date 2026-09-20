@@ -15,6 +15,7 @@ DEFAULT_CONFIG_TEMPLATE = (
     'exclude = []\n'
     'output_file = ""  # relative path to write the output (leave empty to skip)\n'
     'copy_to_clipboard = true\n'
+    'prompt_tail = true\n'
     '\n'
     '[[presets]]\n'
     'name = "all"\n'
@@ -24,7 +25,7 @@ DEFAULT_CONFIG_TEMPLATE = (
 
 
 def read_config(root: Path) -> tuple[
-    list[str], list[str], list[dict[str, list[str]]], str | None, bool
+    list[str], list[str], list[dict[str, list[str]]], str | None, bool, bool
 ]:
     """Read config values from `reptclip-config.toml` in `root`.
 
@@ -41,7 +42,7 @@ def read_config(root: Path) -> tuple[
     """
     config_path = root / CONFIG_FILENAME
     if not config_path.is_file():
-        return [], [], [], None, True
+        return [], [], [], None, True, True
 
     with config_path.open("rb") as f:
         data = tomllib.load(f)
@@ -55,6 +56,7 @@ def read_config(root: Path) -> tuple[
         output_file_val = None
 
     copy_to_clipboard_val = bool(data.get("copy_to_clipboard", True))
+    prompt_tail_val = bool(data.get("prompt_tail", True))
     raw_presets = data.get("presets", [])
     presets: list[dict[str, list[str]]] = []
 
@@ -76,7 +78,7 @@ def read_config(root: Path) -> tuple[
             }
         )
 
-    return include, exclude, presets, output_file_val, copy_to_clipboard_val
+    return include, exclude, presets, output_file_val, copy_to_clipboard_val, prompt_tail_val
 
 
 def write_default_config(root: Path) -> Path:

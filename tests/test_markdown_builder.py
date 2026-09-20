@@ -31,3 +31,9 @@ def test_build_markdown_with_no_filtered_files_still_has_structure_and_prompt():
     result = build_markdown(["a.py"], [], Path("/repo"), fake_read_file)
     assert "# Project structure" in result
     assert "# Prompt" in result
+
+
+def test_build_markdown_can_skip_prompt_tail():
+    result = build_markdown(["a.py"], ["a.py"], Path("/repo"), fake_read_file, prompt_tail=False)
+    assert "# Project structure" in result
+    assert "# Prompt" not in result

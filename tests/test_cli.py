@@ -15,6 +15,7 @@ def test_init_command_creates_default_config(tmp_path: Path, monkeypatch) -> Non
         "exclude = []\n"
         'output_file = ""  # relative path to write the output (leave empty to skip)\n'
         'copy_to_clipboard = true\n'
+        'prompt_tail = true\n'
         "\n"
         '[[presets]]\n'
         'name = "all"\n'
@@ -38,7 +39,7 @@ def test_run_combines_selected_preset_patterns(tmp_path: Path, monkeypatch) -> N
     monkeypatch.setattr(cli, "get_git_tracked_files", lambda root: ["README.md", "src/app.py", "docs/guide.md"])
     monkeypatch.setattr(cli, "read_file_content", lambda path: "")
     monkeypatch.setattr(cli, "copy_to_clipboard", lambda markdown: None)
-    monkeypatch.setattr(cli, "build_markdown", lambda tracked, filtered, root, reader: "markdown")
+    monkeypatch.setattr(cli, "build_markdown", lambda tracked, filtered, root, reader, **kwargs: "markdown")
 
     captured: dict[str, list[str]] = {}
 
