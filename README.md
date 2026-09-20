@@ -131,11 +131,13 @@ project root. You can create a starter file with:
 reptclip init
 ```
 
-Example contents:
+Contents:
 
 ```toml
-include = ["AGENTS.md", "src/**/*.py", "docs/"]
-exclude = ["src/generated/**"]
+include = ["AGENTS.md"]
+exclude = []
+output_file = ""  # relative path to write the output (leave empty to skip)
+copy_to_clipboard = true
 
 [[presets]]
 name = "all"
@@ -165,5 +167,9 @@ rrcc -p all
 - Only files tracked by git are ever considered.
 - No files' contents are included unless you explicitly ask for them via
   `-i` or the config file — the project structure is always shown, though.
+- Use `output_file = "..."` in the config to save the generated Markdown to a
+  file while keeping the command output available for later use.
+- Set `copy_to_clipboard = false` in the config to generate the markdown without
+  copying it to the clipboard.
 - Binary files and files over 1 MB are automatically skipped (with a note
   in the output) instead of causing an error.
