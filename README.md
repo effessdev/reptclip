@@ -103,8 +103,8 @@ Default configuration:
 name = "default"
 include = ["AGENTS.md"]
 exclude = []
-output_file = ""  # Relative path to write output (leave empty to skip)
-copy_to_clipboard = true
+output = ""
+clipboard = true
 prompt_tail = true
 
 [[presets]]
