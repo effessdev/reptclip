@@ -2,7 +2,7 @@
 
 A fast, cross-platform CLI that turns a project directory into clean Markdown context for an LLM chat — and copies it straight to your clipboard.
 
-<img src="assets/preview.gif" alt="Preview" width="800">
+<img src="assets/preview.gif" alt="Preview" width="600">
 
 ## Install
 
