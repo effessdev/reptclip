@@ -69,10 +69,10 @@ def run(argv: list[str] | None = None) -> int:
         include_patterns.extend(preset.get("include", []))
         exclude_patterns.extend(preset.get("exclude", []))
 
-        if "output_file" in preset:
-            output_file = preset["output_file"]
-        if "copy_to_clipboard" in preset:
-            copy_to_clipboard_val = preset["copy_to_clipboard"]
+        if "output" in preset:
+            output_file = preset["output"]
+        if "clipboard" in preset:
+            copy_to_clipboard_val = preset["clipboard"]
         if "prompt_tail" in preset:
             prompt_tail_val = preset["prompt_tail"]
 
@@ -144,4 +144,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-    

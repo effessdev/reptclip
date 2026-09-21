@@ -16,14 +16,13 @@ DEFAULT_CONFIG_TEMPLATE = (
     'name = "default"\n'
     'include = ["AGENTS.md"]\n'
     'exclude = []\n'
-    'output_file = ""  # relative path to write the output (leave empty to skip)\n'
-    'copy_to_clipboard = true\n'
+    'output = ""\n'
+    'clipboard = true\n'
     'prompt_tail = true\n'
     '\n'
     '[[presets]]\n'
     'name = "all"\n'
     'include = ["**"]\n'
-    'exclude = []\n'
 )
 
 
@@ -56,12 +55,19 @@ def read_config(root: Path) -> list[dict[str, Any]]:
             "exclude": list(preset_data.get("exclude", [])),
         }
 
-        if "output_file" in preset_data:
+        # Handle 'output' (and legacy 'output_file')
+        if "output" in preset_data:
+            out = preset_data.get("output")
+            preset["output"] = out if isinstance(out, str) and out else None
+        elif "output_file" in preset_data:
             out = preset_data.get("output_file")
-            preset["output_file"] = out if isinstance(out, str) and out else None
+            preset["output"] = out if isinstance(out, str) and out else None
 
-        if "copy_to_clipboard" in preset_data:
-            preset["copy_to_clipboard"] = bool(preset_data.get("copy_to_clipboard"))
+        # Handle 'clipboard' (and legacy 'copy_to_clipboard')
+        if "clipboard" in preset_data:
+            preset["clipboard"] = bool(preset_data.get("clipboard"))
+        elif "copy_to_clipboard" in preset_data:
+            preset["clipboard"] = bool(preset_data.get("copy_to_clipboard"))
 
         if "prompt_tail" in preset_data:
             preset["prompt_tail"] = bool(preset_data.get("prompt_tail"))

@@ -13,16 +13,16 @@ def test_reads_presets(tmp_path: Path):
         'name = "default"\n'
         'include = ["AGENTS.md"]\n'
         'exclude = []\n'
-        'output_file = ""\n'
-        'copy_to_clipboard = true\n'
+        'output = ""\n'
+        'clipboard = true\n'
         'prompt_tail = true\n'
         '\n'
         '[[presets]]\n'
         'name = "docs"\n'
         'include = ["docs/**/*.md"]\n'
         'exclude = ["docs/skip/**"]\n'
-        'output_file = "out.md"\n'
-        'copy_to_clipboard = false\n'
+        'output = "out.md"\n'
+        'clipboard = false\n'
         'prompt_tail = false\n'
     )
     presets = read_config(tmp_path)
@@ -31,16 +31,16 @@ def test_reads_presets(tmp_path: Path):
             "name": "default",
             "include": ["AGENTS.md"],
             "exclude": [],
-            "output_file": None,
-            "copy_to_clipboard": True,
+            "output": None,
+            "clipboard": True,
             "prompt_tail": True,
         },
         {
             "name": "docs",
             "include": ["docs/**/*.md"],
             "exclude": ["docs/skip/**"],
-            "output_file": "out.md",
-            "copy_to_clipboard": False,
+            "output": "out.md",
+            "clipboard": False,
             "prompt_tail": False,
         },
     ]

@@ -40,14 +40,13 @@ def test_init_command_creates_default_config(tmp_path: Path, monkeypatch) -> Non
         'name = "default"\n'
         'include = ["AGENTS.md"]\n'
         'exclude = []\n'
-        'output_file = ""  # relative path to write the output (leave empty to skip)\n'
-        'copy_to_clipboard = true\n'
+        'output = ""\n'
+        'clipboard = true\n'
         'prompt_tail = true\n'
         '\n'
         '[[presets]]\n'
         'name = "all"\n'
         'include = ["**"]\n'
-        'exclude = []\n'
     )
 
 
@@ -60,13 +59,13 @@ def test_run_applies_default_preset_and_overrides_with_selected_preset(
         'name = "default"\n'
         'include = ["src/**"]\n'
         'exclude = ["src/skip/**"]\n'
-        'copy_to_clipboard = true\n'
+        'clipboard = true\n'
         '\n'
         '[[presets]]\n'
         'name = "docs"\n'
         'include = ["docs/**"]\n'
         'exclude = ["docs/skip/**"]\n'
-        'copy_to_clipboard = false\n'
+        'clipboard = false\n'
     )
 
     monkeypatch.setattr(cli, "get_git_tracked_files", lambda root: ["README.md", "src/app.py", "docs/guide.md"])
