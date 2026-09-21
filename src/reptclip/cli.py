@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import argparse
 import inspect
 import sys
 from pathlib import Path
 
+from reptclip.cli_parser import ParsedArgs, parse_cli_args
 from reptclip.clipboard import copy_to_clipboard
 from reptclip.config import read_config, write_default_config
 from reptclip.file_reader import read_file_content
@@ -15,50 +15,12 @@ from reptclip.git_files import get_git_tracked_files
 from reptclip.markdown_builder import build_markdown
 
 
-def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    """Parse CLI arguments. Kept separate from `run` so it's easy to test."""
-    parser = argparse.ArgumentParser(
-        prog="reptclip",
-        description=(
-            "Generate a Markdown snapshot of a git repository's structure and "
-            "chosen files, and copy it straight to the clipboard."
-        ),
-    )
-    parser.add_argument(
-        "-i", "--include",
-        nargs="+",
-        default=[],
-        metavar="PATTERN",
-        help="Glob patterns of files to include (supports * and **).",
-    )
-    parser.add_argument(
-        "-e", "--exclude",
-        nargs="+",
-        default=[],
-        metavar="PATTERN",
-        help="Glob patterns of files to exclude (supports * and **).",
-    )
-    parser.add_argument(
-        "-p", "--preset",
-        nargs="+",
-        default=[],
-        metavar="PRESET",
-        help="Names of presets from reptclip-config.toml to apply.",
-    )
-    subparsers = parser.add_subparsers(dest="command")
-    subparsers.add_parser(
-        "init",
-        help="Create a default reptclip-config.toml file in the current directory.",
-    )
-    return parser.parse_args(argv)
-
-
 def run(argv: list[str] | None = None) -> int:
     """Run the full reptclip program flow. Returns a process exit code."""
-    args = parse_args(argv)
+    args: ParsedArgs = parse_cli_args(argv)
     root = Path.cwd()
 
-    if getattr(args, "command", None) == "init":
+    if args.command == "init":
         config_path = write_default_config(root)
         print(f"Created config file at {config_path}")
         return 0
@@ -82,14 +44,17 @@ def run(argv: list[str] | None = None) -> int:
     config_presets = read_config(root)
     presets_by_name = {p["name"]: p for p in config_presets}
 
-    # Determine order of presets to apply (default first if present, then CLI presets)
+    # Determine order of presets to apply
     presets_to_apply = []
     if "default" in presets_by_name:
         presets_to_apply.append(presets_by_name["default"])
 
     for preset_name in args.preset:
         if preset_name not in presets_by_name:
-            print(f"Error: preset '{preset_name}' was not found in {root / 'reptclip-config.toml'}.", file=sys.stderr)
+            print(
+                f"Error: preset '{preset_name}' was not found in {root / 'reptclip-config.toml'}.",
+                file=sys.stderr,
+            )
             return 1
         presets_to_apply.append(presets_by_name[preset_name])
 
@@ -114,6 +79,14 @@ def run(argv: list[str] | None = None) -> int:
     # Append CLI patterns over preset rules
     include_patterns.extend(args.include)
     exclude_patterns.extend(args.exclude)
+
+    # CLI flag overrides for single values
+    if args.output_file is not None:
+        output_file = args.output_file if args.output_file != '""' and args.output_file != "''" else None
+    if args.copy_to_clipboard is not None:
+        copy_to_clipboard_val = args.copy_to_clipboard
+    if args.prompt_tail is not None:
+        prompt_tail_val = args.prompt_tail
 
     filtered_files = filter_files(tracked_files, include_patterns, exclude_patterns)
 
@@ -171,3 +144,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+    

@@ -2,6 +2,31 @@ from pathlib import Path
 
 import reptclip.cli as cli
 from reptclip.cli import run
+from reptclip.cli_parser import parse_cli_args
+
+
+def test_parse_cli_args_supports_hyphens_and_traditional_flags() -> None:
+    args = parse_cli_args(["-i", "**/*.py", "--exclude", "src/secret.py", "-p", "docs", "--no-clipboard", "--prompt-tail"])
+    assert args.include == ["**/*.py"]
+    assert args.exclude == ["src/secret.py"]
+    assert args.preset == ["docs"]
+    assert args.copy_to_clipboard is False
+    assert args.prompt_tail is True
+
+
+def test_parse_cli_args_natural_syntax() -> None:
+    args = parse_cli_args(["**/*.py", "AGENTS.md", "e", "src/secret.py", "p", "docs"])
+    assert args.include == ["**/*.py", "AGENTS.md"]
+    assert args.exclude == ["src/secret.py"]
+    assert args.preset == ["docs"]
+
+
+def test_parse_cli_args_interleaved_keywords() -> None:
+    args = parse_cli_args(["-i", "file1", "file2", "--no-prompt-tail", "file3", "-o", "out.md", "-c"])
+    assert args.include == ["file1", "file2", "file3"]
+    assert args.prompt_tail is False
+    assert args.output_file == "out.md"
+    assert args.copy_to_clipboard is True
 
 
 def test_init_command_creates_default_config(tmp_path: Path, monkeypatch) -> None:
@@ -26,7 +51,9 @@ def test_init_command_creates_default_config(tmp_path: Path, monkeypatch) -> Non
     )
 
 
-def test_run_applies_default_preset_and_overrides_with_selected_preset(tmp_path: Path, monkeypatch) -> None:
+def test_run_applies_default_preset_and_overrides_with_selected_preset(
+    tmp_path: Path, monkeypatch
+) -> None:
     monkeypatch.chdir(tmp_path)
     (tmp_path / "reptclip-config.toml").write_text(
         '[[presets]]\n'
@@ -63,4 +90,4 @@ def test_run_applies_default_preset_and_overrides_with_selected_preset(tmp_path:
     assert exit_code == 0
     assert captured["include_patterns"] == ["src/**", "docs/**", "README.md"]
     assert captured["exclude_patterns"] == ["src/skip/**", "docs/skip/**"]
-    assert clipboard_called == []  # Overridden to False by docs preset
+    assert clipboard_called == []
