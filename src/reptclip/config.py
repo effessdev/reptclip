@@ -1,8 +1,9 @@
-"""Reading include/exclude patterns from a reptclip-config.toml file."""
+"""Reading presets from a reptclip-config.toml file."""
 
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 try:
     import tomllib  # Python 3.11+
@@ -11,6 +12,8 @@ except ModuleNotFoundError:  # pragma: no cover - exercised on Python < 3.11
 
 CONFIG_FILENAME = "reptclip-config.toml"
 DEFAULT_CONFIG_TEMPLATE = (
+    '[[presets]]\n'
+    'name = "default"\n'
     'include = ["AGENTS.md"]\n'
     'exclude = []\n'
     'output_file = ""  # relative path to write the output (leave empty to skip)\n'
@@ -24,41 +27,20 @@ DEFAULT_CONFIG_TEMPLATE = (
 )
 
 
-def read_config(root: Path) -> tuple[
-    list[str], list[str], list[dict[str, list[str]]], str | None, bool, bool
-]:
-    """Read config values from `reptclip-config.toml` in `root`.
+def read_config(root: Path) -> list[dict[str, Any]]:
+    """Read presets from `reptclip-config.toml` in `root`.
 
-    Returns `([], [], [])` if the file doesn't exist. The file, if present, is
-    expected to look like:
-
-        include = ["src/**/*.py"]
-        exclude = ["src/generated/**"]
-
-        [[presets]]
-        name = "docs"
-        include = ["docs/**/*.md"]
-        exclude = ["docs/skip/**"]
+    Returns an empty list if the file doesn't exist.
     """
     config_path = root / CONFIG_FILENAME
     if not config_path.is_file():
-        return [], [], [], None, True, True
+        return []
 
     with config_path.open("rb") as f:
         data = tomllib.load(f)
 
-    include = list(data.get("include", []))
-    exclude = list(data.get("exclude", []))
-    output_file = data.get("output_file")
-    if isinstance(output_file, str) and output_file:
-        output_file_val: str | None = output_file
-    else:
-        output_file_val = None
-
-    copy_to_clipboard_val = bool(data.get("copy_to_clipboard", True))
-    prompt_tail_val = bool(data.get("prompt_tail", True))
     raw_presets = data.get("presets", [])
-    presets: list[dict[str, list[str]]] = []
+    presets: list[dict[str, Any]] = []
 
     for preset_data in raw_presets:
         if not isinstance(preset_data, dict):
@@ -68,17 +50,25 @@ def read_config(root: Path) -> tuple[
         if not isinstance(name, str) or not name:
             continue
 
-        include_patterns = preset_data.get("include", [])
-        exclude_patterns = preset_data.get("exclude", [])
-        presets.append(
-            {
-                "name": name,
-                "include": list(include_patterns),
-                "exclude": list(exclude_patterns),
-            }
-        )
+        preset: dict[str, Any] = {
+            "name": name,
+            "include": list(preset_data.get("include", [])),
+            "exclude": list(preset_data.get("exclude", [])),
+        }
 
-    return include, exclude, presets, output_file_val, copy_to_clipboard_val, prompt_tail_val
+        if "output_file" in preset_data:
+            out = preset_data.get("output_file")
+            preset["output_file"] = out if isinstance(out, str) and out else None
+
+        if "copy_to_clipboard" in preset_data:
+            preset["copy_to_clipboard"] = bool(preset_data.get("copy_to_clipboard"))
+
+        if "prompt_tail" in preset_data:
+            preset["prompt_tail"] = bool(preset_data.get("prompt_tail"))
+
+        presets.append(preset)
+
+    return presets
 
 
 def write_default_config(root: Path) -> Path:

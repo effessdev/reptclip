@@ -79,29 +79,39 @@ def run(argv: list[str] | None = None) -> int:
         print("No git-tracked files found in the current directory.", file=sys.stderr)
         return 1
 
-    (
-        config_include,
-        config_exclude,
-        config_presets,
-        config_output_file,
-        config_copy_to_clipboard,
-        config_prompt_tail,
-    ) = read_config(root)
-    include_patterns = config_include.copy()
-    exclude_patterns = config_exclude.copy()
+    config_presets = read_config(root)
+    presets_by_name = {p["name"]: p for p in config_presets}
+
+    # Determine order of presets to apply (default first if present, then CLI presets)
+    presets_to_apply = []
+    if "default" in presets_by_name:
+        presets_to_apply.append(presets_by_name["default"])
 
     for preset_name in args.preset:
-        matching_preset = next(
-            (preset for preset in config_presets if preset["name"] == preset_name),
-            None,
-        )
-        if matching_preset is None:
+        if preset_name not in presets_by_name:
             print(f"Error: preset '{preset_name}' was not found in {root / 'reptclip-config.toml'}.", file=sys.stderr)
             return 1
+        presets_to_apply.append(presets_by_name[preset_name])
 
-        include_patterns.extend(matching_preset["include"])
-        exclude_patterns.extend(matching_preset["exclude"])
+    # Merge configuration options sequentially across presets
+    include_patterns: list[str] = []
+    exclude_patterns: list[str] = []
+    output_file: str | None = None
+    copy_to_clipboard_val: bool = True
+    prompt_tail_val: bool = True
 
+    for preset in presets_to_apply:
+        include_patterns.extend(preset.get("include", []))
+        exclude_patterns.extend(preset.get("exclude", []))
+
+        if "output_file" in preset:
+            output_file = preset["output_file"]
+        if "copy_to_clipboard" in preset:
+            copy_to_clipboard_val = preset["copy_to_clipboard"]
+        if "prompt_tail" in preset:
+            prompt_tail_val = preset["prompt_tail"]
+
+    # Append CLI patterns over preset rules
     include_patterns.extend(args.include)
     exclude_patterns.extend(args.exclude)
 
@@ -113,16 +123,15 @@ def run(argv: list[str] | None = None) -> int:
             filtered_files,
             root,
             read_file_content,
-            prompt_tail=config_prompt_tail,
+            prompt_tail=prompt_tail_val,
         )
     else:
         markdown = build_markdown(tracked_files, filtered_files, root, read_file_content)
 
     # Optionally write to file if configured
-    if config_output_file:
+    if output_file:
         try:
-            out_path = Path(config_output_file)
-            # treat relative paths as relative to cwd
+            out_path = Path(output_file)
             if not out_path.is_absolute():
                 out_path = Path.cwd() / out_path
             out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -133,7 +142,7 @@ def run(argv: list[str] | None = None) -> int:
             return 1
 
     # Optionally copy to clipboard
-    if config_copy_to_clipboard:
+    if copy_to_clipboard_val:
         try:
             copy_to_clipboard(markdown)
         except Exception as exc:
@@ -141,9 +150,9 @@ def run(argv: list[str] | None = None) -> int:
             return 1
 
     status_parts = []
-    if config_copy_to_clipboard:
+    if copy_to_clipboard_val:
         status_parts.append("Copied to clipboard")
-    if config_output_file:
+    if output_file:
         status_parts.append("Wrote to file")
 
     status_note = ", ".join(status_parts) if status_parts else "Generated output"

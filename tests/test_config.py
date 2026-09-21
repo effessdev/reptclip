@@ -3,55 +3,60 @@ from pathlib import Path
 from reptclip.config import read_config
 
 
-def test_missing_config_returns_empty_lists(tmp_path: Path):
-    assert read_config(tmp_path) == ([], [], [], None, True, True)
-
-
-def test_reads_include_and_exclude(tmp_path: Path):
-    (tmp_path / "reptclip-config.toml").write_text(
-        'include = ["src/**/*.py", "docs/"]\n'
-        'exclude = ["src/generated/**"]\n'
-        'prompt_tail = false\n'
-    )
-    include, exclude, presets, output_file, copy_to_clipboard, prompt_tail = read_config(tmp_path)
-    assert include == ["src/**/*.py", "docs/"]
-    assert exclude == ["src/generated/**"]
-    assert presets == []
-    assert output_file is None
-    assert copy_to_clipboard is True
-    assert prompt_tail is False
+def test_missing_config_returns_empty_list(tmp_path: Path):
+    assert read_config(tmp_path) == []
 
 
 def test_reads_presets(tmp_path: Path):
     (tmp_path / "reptclip-config.toml").write_text(
         '[[presets]]\n'
+        'name = "default"\n'
+        'include = ["AGENTS.md"]\n'
+        'exclude = []\n'
+        'output_file = ""\n'
+        'copy_to_clipboard = true\n'
+        'prompt_tail = true\n'
+        '\n'
+        '[[presets]]\n'
         'name = "docs"\n'
         'include = ["docs/**/*.md"]\n'
         'exclude = ["docs/skip/**"]\n'
-        '\n'
-        '[[presets]]\n'
-        'name = "tests"\n'
-        'include = ["tests/**"]\n'
-        'exclude = []\n'
+        'output_file = "out.md"\n'
+        'copy_to_clipboard = false\n'
+        'prompt_tail = false\n'
     )
-    include, exclude, presets, output_file, copy_to_clipboard, prompt_tail = read_config(tmp_path)
-    assert include == []
-    assert exclude == []
+    presets = read_config(tmp_path)
     assert presets == [
-        {"name": "docs", "include": ["docs/**/*.md"], "exclude": ["docs/skip/**"]},
-        {"name": "tests", "include": ["tests/**"], "exclude": []},
+        {
+            "name": "default",
+            "include": ["AGENTS.md"],
+            "exclude": [],
+            "output_file": None,
+            "copy_to_clipboard": True,
+            "prompt_tail": True,
+        },
+        {
+            "name": "docs",
+            "include": ["docs/**/*.md"],
+            "exclude": ["docs/skip/**"],
+            "output_file": "out.md",
+            "copy_to_clipboard": False,
+            "prompt_tail": False,
+        },
     ]
-    assert output_file is None
-    assert copy_to_clipboard is True
-    assert prompt_tail is True
 
 
-def test_missing_keys_default_to_empty_lists(tmp_path: Path):
-    (tmp_path / "reptclip-config.toml").write_text('include = ["a.py"]\n')
-    include, exclude, presets, output_file, copy_to_clipboard, prompt_tail = read_config(tmp_path)
-    assert include == ["a.py"]
-    assert exclude == []
-    assert presets == []
-    assert output_file is None
-    assert copy_to_clipboard is True
-    assert prompt_tail is True
+def test_preset_optional_fields_omitted(tmp_path: Path):
+    (tmp_path / "reptclip-config.toml").write_text(
+        '[[presets]]\n'
+        'name = "minimal"\n'
+        'include = ["a.py"]\n'
+    )
+    presets = read_config(tmp_path)
+    assert presets == [
+        {
+            "name": "minimal",
+            "include": ["a.py"],
+            "exclude": [],
+        }
+    ]

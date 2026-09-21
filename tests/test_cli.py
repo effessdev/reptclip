@@ -11,12 +11,14 @@ def test_init_command_creates_default_config(tmp_path: Path, monkeypatch) -> Non
 
     assert exit_code == 0
     assert (tmp_path / "reptclip-config.toml").read_text(encoding="utf-8") == (
+        '[[presets]]\n'
+        'name = "default"\n'
         'include = ["AGENTS.md"]\n'
-        "exclude = []\n"
+        'exclude = []\n'
         'output_file = ""  # relative path to write the output (leave empty to skip)\n'
         'copy_to_clipboard = true\n'
         'prompt_tail = true\n'
-        "\n"
+        '\n'
         '[[presets]]\n'
         'name = "all"\n'
         'include = ["**"]\n'
@@ -24,22 +26,28 @@ def test_init_command_creates_default_config(tmp_path: Path, monkeypatch) -> Non
     )
 
 
-def test_run_combines_selected_preset_patterns(tmp_path: Path, monkeypatch) -> None:
+def test_run_applies_default_preset_and_overrides_with_selected_preset(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     (tmp_path / "reptclip-config.toml").write_text(
+        '[[presets]]\n'
+        'name = "default"\n'
         'include = ["src/**"]\n'
         'exclude = ["src/skip/**"]\n'
+        'copy_to_clipboard = true\n'
         '\n'
         '[[presets]]\n'
         'name = "docs"\n'
         'include = ["docs/**"]\n'
         'exclude = ["docs/skip/**"]\n'
+        'copy_to_clipboard = false\n'
     )
 
     monkeypatch.setattr(cli, "get_git_tracked_files", lambda root: ["README.md", "src/app.py", "docs/guide.md"])
     monkeypatch.setattr(cli, "read_file_content", lambda path: "")
-    monkeypatch.setattr(cli, "copy_to_clipboard", lambda markdown: None)
     monkeypatch.setattr(cli, "build_markdown", lambda tracked, filtered, root, reader, **kwargs: "markdown")
+
+    clipboard_called = []
+    monkeypatch.setattr(cli, "copy_to_clipboard", lambda markdown: clipboard_called.append(True))
 
     captured: dict[str, list[str]] = {}
 
@@ -55,3 +63,4 @@ def test_run_combines_selected_preset_patterns(tmp_path: Path, monkeypatch) -> N
     assert exit_code == 0
     assert captured["include_patterns"] == ["src/**", "docs/**", "README.md"]
     assert captured["exclude_patterns"] == ["src/skip/**", "docs/skip/**"]
+    assert clipboard_called == []  # Overridden to False by docs preset
