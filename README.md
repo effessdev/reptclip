@@ -1,6 +1,6 @@
 # ReptClip - Fast Context for Your ChatBot
 
-A fast, cross-platform CLI that turns a project directory into clean Markdown context for an LLM chat, and copies it straight to your clipboard.
+A fast, cross-platform CLI that turns a project directory into clean Markdown context for an LLM chat (no `.gitignore`ed files), and copies it straight to your clipboard.
 
 <img src="assets/preview.webp" alt="Preview" width="100%">
 
@@ -38,13 +38,11 @@ Example output:
 # Project structure
 
 ```
-
 .gitignore
 README.md
 docs/README.md
 src/functions.py
 src/main.py
-
 ```
 
 # Prompt
@@ -54,23 +52,45 @@ src/main.py
 
 ## Natural CLI Syntax
 
-ReptClip supports simple, readable English commands. Keywords do not require hyphens, and arguments are included by default.
+ReptClip supports simple, readable English commands.
 
 ### Including & Excluding Files
 
-Glob patterns passed as positional arguments are automatically included. To specify excludes, use `e` or `exclude`:
+Glob patterns are used to specify which files to include in the context. For example:
+
+```bash
+rrcc "AGENTS.md"
+```
+
+Example output for this command:
+
+````markdown
+# Project structure
+
+```
+.gitignore
+README.md
+docs/README.md
+src/functions.py
+src/main.py
+```
+
+# AGENTS.md
+
+```
+Contents of AGENTS.md.
+```
+
+# Prompt
+````
+
+To specify files to exclude, use `e` or `exclude`. Here is an example:
 
 ```bash
 rrcc "**/*.py" "AGENTS.md" e "src/secret.py"
 ```
 
-If preferred, you can also use `i` or `include` explicitly:
-
-```bash
-rrcc i "file1.py" "file2.py" e "src/secret.py"
-```
-
-_Note: Traditional hyphenated flags (`-i`, `--include`, `-e`, `--exclude`) are fully supported for backwards compatibility._
+This includes all `.py` files and `AGENTS.md`, while excluding `secret.py`.
 
 ### Output, Clipboard & Prompt Tail Controls
 
@@ -111,7 +131,7 @@ include = ["**"]
 exclude = []
 ```
 
-The preset named `default` is always applied. This can be used for **defining default configurations**. Other presets can be applied like this:
+The preset named `default` is always applied. This can be used for **defining default configurations**. Other presets can be applied using `p` or `preset`:
 
 ```bash
 rrcc p mypreset
@@ -132,6 +152,6 @@ rrcc p mypreset
 
 ## Notes
 
-- **GitIgnore Integration**: Files ignored by `.gitignore` rules are automatically excluded via pure Python tree traversal.
+- **GitIgnore Aware**: Files ignored by `.gitignore` rules are automatically excluded via pure Python tree traversal.
 - **Automatic Guards**: Binary files and files over 1 MB are automatically skipped with descriptive placeholders instead of causing errors.
 - **Rule Precedence**: CLI options extend and override configured preset rules sequentially.
