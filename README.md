@@ -1,8 +1,8 @@
 # ReptClip - Fast Context for Your ChatBot
 
-A fast, cross-platform CLI that turns a project directory into clean Markdown context for an LLM chat — and copies it straight to your clipboard.
+A fast, cross-platform CLI that turns a project directory into clean Markdown context for an LLM chat, and copies it straight to your clipboard.
 
-<img src="assets/preview.gif" alt="Preview" width="600">
+<img src="assets/preview.webp" alt="Preview" width="100%">
 
 ## Install
 
