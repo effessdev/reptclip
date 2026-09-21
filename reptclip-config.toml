@@ -2,7 +2,7 @@
 name = "default"
 include = ["AGENTS.md"]
 exclude = []
-output_file = "out.txt"  # relative path to write the output (leave empty to skip)
+output_file = ""  # relative path to write the output (leave empty to skip)
 copy_to_clipboard = true
 prompt_tail = true
 
@@ -10,4 +10,3 @@ prompt_tail = true
 name = "all"
 include = ["**"]
 exclude = []
-output_file = ""
