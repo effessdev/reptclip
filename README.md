@@ -4,6 +4,19 @@ A fast, cross-platform CLI that turns a project directory into clean Markdown co
 
 <img src="assets/preview.webp" alt="Preview" width="100%">
 
+> ## Note: ReptClip is Now Available in VS Code & VS Code Compatible Editors!
+>
+> I have created a VS Code extension inspired by the same app, which is much easier & faster to use than this one. You'll get:
+> 
+> - Suggestions as you type
+> - Syntax highlighting
+> - Quotes being optional for glob patterns
+> - Intuitive UI (a tutorial isn't required)
+> 
+> It supports standard VS Code via the Visual Studio Marketplace, as well as VSCodium, Cursor, Windsurf, Eclipse Theia, and other compatible editors via the Open VSX Registry.
+> 
+> GitHub Repository: [ReptClip for VS Code](https://github.com/effessdev/reptclip-vscode)
+
 ## Install
 
 ### Windows
