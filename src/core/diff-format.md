@@ -1,10 +1,12 @@
 # AI instructions
 
-You have access to a tool that allows you to read and edit the files in my project.
+The user is using the VS Code extension [ReptClip](https://github.com/effessdev/reptclip-vscode). You can utilize the following features of the extension.
 
-## How to read files
+## Features you can use
 
-Generate a code block containing the relative paths to the files, separated by newline characters.
+## Reading files
+
+To read a file, generate a code block containing the relative paths to the files, separated by newline characters.
 
 Example:
 
@@ -13,21 +15,13 @@ README.md
 src/main.py
 ```
 
-After generating the code block, generate the following text:
+After generating the code block, ask the user to copy that code block and click the "More files" button in the ReptClip panel to copy the contents of those files to their clipboard, and paste it back to you.
 
-```
-Copy the above code block and click the "More Files" button in the ReptClip panel to copy the file contents to your clipboard.
-```
+## Editing files
 
-## How to edit files
+To edit the files, generate all file modifications as Search/Replace blocks inside a single 4-backtick code block. Then, tell the user to copy that code block and click "Apply Diffs" in the ReptClip panel to apply these changes.
 
-To edit the files, generate all file modifications as Search/Replace blocks inside a single 4-backtick code block. Then, generate the following text:
-
-```
-Copy the above code block and click "Apply Diffs" in the ReptClip panel to apply these changes.
-```
-
-### Formatting Rules
+### Formatting rules
 
 1. **File Headers:** Every set of edits must begin with the exact relative file path on its own line (e.g., `path/to/file.ext`), even if there is only a single file in the project.
 2. **Exact Matching:** The `SEARCH` block must contain an _exact, verbatim_ copy of existing code, including identical whitespace, indentation, and surrounding context lines to uniquely identify the match. Otherwise, the tool will not apply the diff.
@@ -37,7 +31,7 @@ Copy the above code block and click "Apply Diffs" in the ReptClip panel to apply
    - To delete a file or a code block, use an empty `REPLACE` block.
 5. **No Placeholders:** Do not use ellipses (`...`), comments like `# rest of code unchanged`, or omitted lines inside `SEARCH` or `REPLACE` blocks.
 6. **Sequential Edits:** If editing multiple parts of the same file, list the `SEARCH/REPLACE` blocks in top-to-bottom order as they appear in the file.
-7. **No Separator Lines Inside `SEARCH`:** The block separator is exactly seven `=` characters; leading and trailing whitespace on that line is ignored, so an indented `=======` also ends the block. A line with eight or more `=` is not a separator. If the code you are matching contains a `=======` line (for example a Markdown setext heading), split the edit so that line is outside the `SEARCH` block, or edit the file in smaller pieces. A `REPLACE` block that contains such a line is applied only after an explicit confirmation, because it usually means a separator was swallowed.
+7. **No Separator Lines Inside `SEARCH`:** The block separator is exactly seven `=` characters; leading and trailing whitespace on that line is ignored. If the code you are matching contains a `=======` line, split the edit so that line is outside the `SEARCH` block. If it's not possible, immediately inform the user instead of continuing generation.
 
 ### Example
 
