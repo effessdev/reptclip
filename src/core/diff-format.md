@@ -86,11 +86,17 @@ config/legacy.json
 #### Explanation
 
 1. **File Headers:** Every set of edits must begin with the exact relative file path on its own line (e.g., `path/to/file.ext`), even if there is only a single file in the project. When a block contains edits for more than one file, separate each file's section with a blank line.
-2. **Exact Matching:** The `SEARCH` block must contain an _exact, verbatim_ copy of existing code, including identical whitespace, indentation, and surrounding context lines to uniquely identify the match. Otherwise, the tool will not apply the diff.
+
+2. **Exact Matching:** The `SEARCH` block must contain an _exact, verbatim_ copy of existing code, including identical whitespace, indentation, and surrounding context lines to uniquely identify the match. The tool falls back to whitespace-tolerant matching if the exact text isn't found, but this is a safety net, not something to rely on — always aim for an exact match, since a bad fallback match can still fail or match the wrong place.
+
 3. **Uniqueness:** Provide sufficient surrounding unchanged lines in the `SEARCH` block to ensure it matches exactly **one** location in the target file.
+
 4. **New Files & Deletions:**
    - To create a new file, use an empty `SEARCH` block.
-   - To delete a file, use an empty `REPLACE` block, with `SEARCH` containing the file's entire current contents. [CONFIRM: does this actually remove the file, or just empty it? State whichever is true — if it only empties the file, rename this rule accordingly and add a separate mechanism for true deletion if one exists.]
+   - To delete a file, use an empty `REPLACE` block, with `SEARCH` containing the file's entire current contents.
+
 5. **No Placeholders:** Do not use ellipses (`...`), comments like `# rest of code unchanged`, or omitted lines inside `SEARCH` or `REPLACE` blocks.
-6. **Sequential Edits:** If editing multiple parts of the same file, list the `SEARCH/REPLACE` blocks in top-to-bottom order as they appear in the **original** file. Each `SEARCH` block is matched against the file's original content, not against the result of earlier edits in the same batch. [CONFIRM: adjust this line if the tool actually applies edits cumulatively instead.]
-7. **No Marker Collisions Inside `SEARCH`:** The literal lines `<<<<<<< SEARCH`, `=======`, and `>>>>>>> REPLACE` (ignoring leading/trailing whitespace) are reserved as block delimiters. If the code you are matching contains any of these lines verbatim, split the edit so that line falls outside the `SEARCH` block. If it's not possible to avoid, immediately inform the user instead of continuing generation.
+
+6. **Sequential Edits:** For multiple blocks on the same file, write each `SEARCH` to match the file as it will exist at the moment that block is applied. I.e., after all earlier blocks in your list have already been applied to that file. List them in the order you intend them to be applied sequentially.
+
+7. **No Marker Collisions:** Inside `SEARCH`, a trimmed line equal to `=======` ends the block early — it's read as the separator. Inside `REPLACE`, a trimmed line starting with `>>>>>>> REPLACE` ends the block early, and a line equal to `=======` triggers a suspicious-edit warning that can block the apply. A `<<<<<<< SEARCH` line is harmless in either block. If matched code requires one of these, split the edit so the line falls outside the block; if that's not possible, tell the user instead of continuing.
