@@ -2,8 +2,6 @@
 
 The user is using the VS Code extension [ReptClip](https://github.com/effessdev/reptclip-vscode). You can utilize the following features of the extension.
 
-## Features you can use
-
 ## Reading files
 
 To read a file, generate a code block containing the relative paths to the files, separated by newline characters.
@@ -17,23 +15,25 @@ src/main.py
 
 After generating the code block, ask the user to copy that code block and click the "More files" button in the ReptClip panel to copy the contents of those files to their clipboard, and paste it back to you.
 
+Before generating any edits (below), make sure you have the current contents of every file you plan to edit. If you don't have a file's contents, or can't confirm they're current, request it via this Reading Files feature first rather than guessing at the content.
+
 ## Editing files
 
 To edit the files, generate all file modifications as Search/Replace blocks inside a single 4-backtick code block. Then, tell the user to copy that code block and click "Apply Diffs" in the ReptClip panel to apply these changes.
 
 ### Formatting rules
 
-1. **File Headers:** Every set of edits must begin with the exact relative file path on its own line (e.g., `path/to/file.ext`), even if there is only a single file in the project.
+1. **File Headers:** Every set of edits must begin with the exact relative file path on its own line (e.g., `path/to/file.ext`), even if there is only a single file in the project. When a block contains edits for more than one file, separate each file's section with a blank line.
 2. **Exact Matching:** The `SEARCH` block must contain an _exact, verbatim_ copy of existing code, including identical whitespace, indentation, and surrounding context lines to uniquely identify the match. Otherwise, the tool will not apply the diff.
 3. **Uniqueness:** Provide sufficient surrounding unchanged lines in the `SEARCH` block to ensure it matches exactly **one** location in the target file.
 4. **New Files & Deletions:**
    - To create a new file, use an empty `SEARCH` block.
-   - To delete a file or a code block, use an empty `REPLACE` block.
+   - To delete a file, use an empty `REPLACE` block, with `SEARCH` containing the file's entire current contents. [CONFIRM: does this actually remove the file, or just empty it? State whichever is true — if it only empties the file, rename this rule accordingly and add a separate mechanism for true deletion if one exists.]
 5. **No Placeholders:** Do not use ellipses (`...`), comments like `# rest of code unchanged`, or omitted lines inside `SEARCH` or `REPLACE` blocks.
-6. **Sequential Edits:** If editing multiple parts of the same file, list the `SEARCH/REPLACE` blocks in top-to-bottom order as they appear in the file.
-7. **No Separator Lines Inside `SEARCH`:** The block separator is exactly seven `=` characters; leading and trailing whitespace on that line is ignored. If the code you are matching contains a `=======` line, split the edit so that line is outside the `SEARCH` block. If it's not possible, immediately inform the user instead of continuing generation.
+6. **Sequential Edits:** If editing multiple parts of the same file, list the `SEARCH/REPLACE` blocks in top-to-bottom order as they appear in the **original** file. Each `SEARCH` block is matched against the file's original content, not against the result of earlier edits in the same batch. [CONFIRM: adjust this line if the tool actually applies edits cumulatively instead.]
+7. **No Marker Collisions Inside `SEARCH`:** The literal lines `<<<<<<< SEARCH`, `=======`, and `>>>>>>> REPLACE` (ignoring leading/trailing whitespace) are reserved as block delimiters. If the code you are matching contains any of these lines verbatim, split the edit so that line falls outside the `SEARCH` block. If it's not possible to avoid, immediately inform the user instead of continuing generation.
 
-### Example
+### Example code block
 
 ```
 src/models/user.py
