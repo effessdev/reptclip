@@ -72,7 +72,7 @@
         "reptclip.defaultDiffFormat": {
           "type": "boolean",
           "default": true,
-          "markdownDescription": "Whether the **Output format** section is checked by default on a project that has no saved ReptClip state yet."
+          "markdownDescription": "Whether the **AI Instructions** section is checked by default on a project that has no saved ReptClip state yet."
         },
         "reptclip.defaultFiles": {
           "type": "boolean",

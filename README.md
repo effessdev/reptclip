@@ -54,11 +54,11 @@ If the chatbot wants to see more files, it will generate a code block containing
 The generated context has the following sections (**each one can be toggled ON or OFF using checkboxes**):
 
 - **Project structure:** lists the relative paths to all files in the project that have not been ignored using `.gitignore`.
-- **Output format:** contains the instructions regarding how to generate the output.
+- **AI instructions:** contains the instructions regarding how to generate the output.
 - **Files:** the files you included in the context.
 - **Prompt section:** an empty `# Prompt\n\n` section to type in your prompt.
 
-The included files are placed between the "Output format" section and the "Prompt" section. You can include files to the context by either entering the relative paths of them or a matching glob pattern in the **Files to include** textarea, separated by spaces. Mid-conversation additions are handled by the **More Files** button (see [Adding files to context](#adding-files-to-context)).
+The included files are placed between the "AI instructions" section and the "Prompt" section. You can include files to the context by either entering the relative paths of them or a matching glob pattern in the **Files to include** textarea, separated by spaces. Mid-conversation additions are handled by the **More Files** button (see [Adding files to context](#adding-files-to-context)).
 
 Example generated context (only `AGENTS.md` is included):
 
@@ -81,7 +81,7 @@ tests/test_cli.py
 tests/test_config.py
 ```
 
-# Output format
+# AI instructions
 
 You have access to a tool that allows you to read and edit the files in my project.
 
@@ -206,7 +206,7 @@ You can uncheck "Copy to clipboard" to turn it off.
 
 - **Oversized and binary files are skipped automatically**, replaced by a descriptive placeholder in the output (limit: 1 MB; binaries detected via NUL-byte sniffing), they still appear in the project structure listing.
 
-- **There is no second implementation for "More Files" to worry about.** Its file list comes from the clipboard instead of the pattern textareas, but the path check and the reads go through the exact same pipeline as Generate. Same `.gitignore` enforcement, same size/binary guards, same Markdown builder. The only difference is what gets wrapped around the files: More Files embeds the listed files alone, no project structure, "Output format", or "Prompt" sections, so a mid-conversation supplement pastes cleanly on top of what the chatbot already has.
+- **There is no second implementation for "More Files" to worry about.** Its file list comes from the clipboard instead of the pattern textareas, but the path check and the reads go through the exact same pipeline as Generate. Same `.gitignore` enforcement, same size/binary guards, same Markdown builder. The only difference is what gets wrapped around the files: More Files embeds the listed files alone, no project structure, "AI instructions", or "Prompt" sections, so a mid-conversation supplement pastes cleanly on top of what the chatbot already has.
 
 ### Write context to file
 
@@ -216,7 +216,7 @@ You can write the context to a file specifying the relative or absolute path to 
 
 When you click the "Apply diffs" button, the diffs are read from your clipboard and applied to the files.
 
-If you have turned on the "Output format" section, the AI will generate the diffs in a single code block. You can copy those diffs, and click "Apply diffs" to apply them.
+If you have turned on the "AI instructions" section, the AI will generate the diffs in a single code block. You can copy those diffs, and click "Apply diffs" to apply them.
 
 #### Safety measures for applying diffs
 
@@ -264,28 +264,28 @@ Include `AGENTS.md`, all Python files, but exclude `src/secret.py` and all Pytho
 
 #### Mid-conversation: the "More Files" button
 
-Paste-ready lists of paths don't come only from you. The "Output format" section explicitly instructs the chatbot to emit one when it needs more context. Copy that list, click **More Files**, and the button does the rest: it reads the clipboard, embeds those files, and (depending on your settings) puts the result back on the clipboard and/or writes it to the "Output file".
+Paste-ready lists of paths don't come only from you. The "AI instructions" section explicitly instructs the chatbot to emit one when it needs more context. Copy that list, click **More Files**, and the button does the rest: it reads the clipboard, embeds those files, and (depending on your settings) puts the result back on the clipboard and/or writes it to the "Output file".
 
 Here's what actually happens, in order:
 
 1. **Parsing is line-by-line and forgiving where it should be, strict where it must be.** Each line is trimmed and treated as one relative path. Empty lines (including runs of consecutive newlines) are skipped the way Python's `str.split()` skips empty pieces, and duplicates collapse to their first occurrence. The order you pasted is the order they're embedded in.
 2. **Pre-flight validation, all-or-nothing.** Before a single file is read, every path clears the embedding guard and is `fs.stat`-ed against the workspace root. Anything unacceptable fails the check: not found, a directory rather than a file, ignored by `.gitignore`, inside `.git`, absolute, or resolving outside the project root. Nothing is copied, nothing is written, no half-baked context reaches your clipboard; instead the panel names each offender and why, e.g. `Cannot embed: src/secret.env (ignored by .gitignore), old.py (not found)`. You fix the list and click again.
-3. **Only then does it build.** The surviving paths are read through the shared pipeline (1 MB limit, binary detection, descriptive placeholders) and formatted by the same Markdown builder used by Generate — but with only the file sections: the Project structure / Output format / Prompt section checkboxes are deliberately not applied, since those were already sent when you first generated the context.
+3. **Only then does it build.** The surviving paths are read through the shared pipeline (1 MB limit, binary detection, descriptive placeholders) and formatted by the same Markdown builder used by Generate — but with only the file sections: the Project structure / AI instructions / Prompt section checkboxes are deliberately not applied, since those were already sent when you first generated the context.
 
 ## Settings
 
 Open VS Code's Settings (`Ctrl+,` / `Cmd+,`) and search for **"ReptClip"** to configure the default panel state used for any project that hasn't been opened in the panel yet (i.e. has no saved per-project state). Once a project has been used with the panel, its saved state takes over and these settings no longer apply to it.
 
-| Setting                            | Default | Description                                                      |
-| ---------------------------------- | ------- | ---------------------------------------------------------------- |
-| `reptclip.defaultInclude`          | `""`    | Default value for the **Files to include** field.                |
-| `reptclip.defaultExclude`          | `""`    | Default value for the **Files to exclude** field.                |
-| `reptclip.defaultClipboard`        | `true`  | Whether **Copy to clipboard** is checked by default.             |
-| `reptclip.defaultProjectStructure` | `true`  | Whether the **Project structure** section is checked by default. |
-| `reptclip.defaultDiffFormat`       | `true`  | Whether the **Output format** section is checked by default.     |
-| `reptclip.defaultFiles`            | `true`  | Whether the **Files** section is checked by default.             |
-| `reptclip.defaultPromptTail`       | `true`  | Whether the **Prompt** section is checked by default.            |
-| `reptclip.defaultOutputFile`       | `""`    | Default value for the **Output file** field.                     |
+| Setting                             | Default | Description                                                              |
+| ----------------------------------- | ------- | ------------------------------------------------------------------------ |
+| `reptclip.defaultInclude`           | `""`    | Default value for the **Files to include** field.                        |
+| `reptclip.defaultExclude`           | `""`    | Default value for the **Files to exclude** field.                        |
+| `reptclip.defaultClipboard`         | `true`  | Whether **Copy to clipboard** is checked by default.                     |
+| `reptclip.defaultProjectStructure`  | `true`  | Whether the **Project structure** section is checked by default.         |
+| `reptclip.defaultDiffFormat`        | `true`  | Whether the **AI instructions** section is checked by default.           |
+| `reptclip.defaultFiles`             | `true`  | Whether the **Files** section is checked by default.                     |
+| `reptclip.defaultPromptTail`        | `true`  | Whether the **Prompt** section is checked by default.                    |
+| `reptclip.defaultOutputFile`        | `""`    | Default value for the **Output file** field.                             |
 | `reptclip.allowProtectedFileWrites` | `false` | Allow diffs that write `.git/**` or `.env*` after a confirmation dialog. |
 
 These can be set at the User level (applies to all projects without saved state) or the Workspace level (applies only within that workspace), using VS Code's normal settings scoping.

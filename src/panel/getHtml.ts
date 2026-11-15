@@ -39,7 +39,7 @@ export function getHtml(
       </label>
       <label class="checkbox">
         <input type="checkbox" id="diffFormat" />
-        <span>Output format</span>
+        <span>AI instructions</span>
       </label>
       <label class="checkbox">
         <input type="checkbox" id="files" />

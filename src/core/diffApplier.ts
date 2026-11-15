@@ -5,7 +5,7 @@ import * as crypto from "crypto";
 
 /**
  * Applies Search/Replace diff blocks copied from an LLM chat, following the
- * output format emitted by `buildMarkdown` (see markdownBuilder.ts):
+ * AI instructions emitted by `buildMarkdown` (see markdownBuilder.ts):
  *
  *   path/to/file.ext
  *   <<<<<<< SEARCH
@@ -102,7 +102,9 @@ const REPLACE_MARKER = ">>>>>>> REPLACE";
  */
 function isProtectedPath(relative: string): boolean {
   const segments = relative.split(/[\\/]+/).filter(Boolean);
-  if (segments.some((segment) => segment.split(":")[0].toLowerCase() === ".git")) {
+  if (
+    segments.some((segment) => segment.split(":")[0].toLowerCase() === ".git")
+  ) {
     return true;
   }
   const base = (segments[segments.length - 1] ?? "")
@@ -271,7 +273,10 @@ async function resolveFile(
       // report where the write really lands so protected-path rules can use it.
       return {
         absPath: abs,
-        realRelPath: path.relative(rootReal, resolved).split(path.sep).join("/"),
+        realRelPath: path
+          .relative(rootReal, resolved)
+          .split(path.sep)
+          .join("/"),
       };
     }
     const parent = path.dirname(probe);
@@ -680,7 +685,10 @@ export async function applyDiffs(
   }));
 
   options.assertBuffersCurrent?.();
-  const { modified, created, deleted } = await commitPlans(plans.values(), options.assertBuffersCurrent);
+  const { modified, created, deleted } = await commitPlans(
+    plans.values(),
+    options.assertBuffersCurrent,
+  );
 
   return {
     modified,
@@ -764,6 +772,9 @@ export async function applySnapshot(
   }
 
   options.assertBuffersCurrent?.();
-  const { modified, created, deleted } = await commitPlans(plans, options.assertBuffersCurrent);
+  const { modified, created, deleted } = await commitPlans(
+    plans,
+    options.assertBuffersCurrent,
+  );
   return { modified, created, deleted, fuzzy: 0 };
 }

@@ -9,7 +9,7 @@ export interface BuildMarkdownInput {
 }
 
 // Instruction block appended after the project structure when the
-// "Output format" checkbox is on. Lives in a markdown file so the inline
+// "AI instructions" checkbox is on. Lives in a markdown file so the inline
 // code spans and the 3-/4-backtick fences can be edited as raw markdown
 // without escaping. esbuild inlines it as a string at build time (see the
 // `loader: { '.md': 'text' }` rule in esbuild.js), so nothing is read from
@@ -19,7 +19,7 @@ import DIFF_FORMAT_SECTION from "./diff-format.md";
 /**
  * Produces the same overall shape as the original CLI's output:
  *   # Project structure   (optional, full non-ignored tree)
- *   ## Output format      (optional, Search/Replace instructions)
+ *   ## AI instructions    (optional, Search/Replace instructions)
  *   # <path>               (one section per included file)
  *   # Prompt                (optional tail)
  */

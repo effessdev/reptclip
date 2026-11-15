@@ -1,4 +1,4 @@
-# Output format
+# AI instructions
 
 You have access to a tool that allows you to read and edit the files in my project.
 
@@ -30,7 +30,7 @@ Copy the above code block and click "Apply Diffs" in the ReptClip panel to apply
 ### Formatting Rules
 
 1. **File Headers:** Every set of edits must begin with the exact relative file path on its own line (e.g., `path/to/file.ext`), even if there is only a single file in the project.
-2. **Exact Matching:** The `SEARCH` block must contain an *exact, verbatim* copy of existing code, including identical whitespace, indentation, and surrounding context lines to uniquely identify the match. Otherwise, the tool will not apply the diff.
+2. **Exact Matching:** The `SEARCH` block must contain an _exact, verbatim_ copy of existing code, including identical whitespace, indentation, and surrounding context lines to uniquely identify the match. Otherwise, the tool will not apply the diff.
 3. **Uniqueness:** Provide sufficient surrounding unchanged lines in the `SEARCH` block to ensure it matches exactly **one** location in the target file.
 4. **New Files & Deletions:**
    - To create a new file, use an empty `SEARCH` block.
@@ -41,7 +41,7 @@ Copy the above code block and click "Apply Diffs" in the ReptClip panel to apply
 
 ### Example
 
-````
+```
 src/models/user.py
 <<<<<<< SEARCH
 class User:
@@ -99,4 +99,4 @@ config/legacy.json
 }
 =======
 >>>>>>> REPLACE
-````
+```

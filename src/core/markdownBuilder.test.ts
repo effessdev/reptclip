@@ -39,7 +39,7 @@ test("buildMarkdown includes the enabled sections and omits the disabled ones", 
   });
 
   assert.ok(markdown.includes("# Project structure"));
-  assert.ok(markdown.includes("# Output format"));
+  assert.ok(markdown.includes("# AI instructions"));
   assert.ok(markdown.includes("# src/a.ts"));
   assert.ok(markdown.includes("# Prompt"));
 
@@ -54,7 +54,7 @@ test("buildMarkdown includes the enabled sections and omits the disabled ones", 
   });
 
   assert.ok(!trimmed.includes("# Project structure"));
-  assert.ok(!trimmed.includes("# Output format"));
+  assert.ok(!trimmed.includes("# AI instructions"));
   assert.ok(!trimmed.includes("# src/a.ts"));
   assert.ok(!trimmed.includes("# Prompt"));
 });

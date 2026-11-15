@@ -36,7 +36,7 @@ export async function generateContext(
 }
 
 /**
- * Only the listed files are embedded: the project structure, "Output format",
+ * Only the listed files are embedded: the project structure, "AI instructions",
  * and "Prompt" sections are never added, so a mid-conversation supplement
  * pastes cleanly on top of the context already in the chat instead of
  * repeating scaffolding the chatbot has already seen. The file reads still go
