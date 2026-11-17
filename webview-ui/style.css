@@ -125,6 +125,12 @@ body {
   margin-bottom: 4px;
 }
 
+.pattern-column > label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 textarea,
 input[type="text"] {
   width: 100%;
