@@ -14,15 +14,22 @@
     "url": "https://github.com/effessdev/reptclip-vscode.git"
   },
   "keywords": [
+    "ai",
+    "copilot",
+    "cursor",
     "llm",
-    "markdown",
     "context",
     "clipboard",
+    "diff",
+    "apply",
     "chatgpt",
+    "claude",
     "gemini",
-    "claude"
+    "productivity"
   ],
   "categories": [
+    "AI",
+    "Programming Languages",
     "Other"
   ],
   "activationEvents": [],
