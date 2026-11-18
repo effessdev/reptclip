@@ -74,6 +74,7 @@ async function collectLineCounts(
  * a single unacceptable path aborts the run instead of producing partial
  * context.
  */
+/** @deprecated Superseded by `moreContext` (cat/grep command lists); kept until the docs/tests cleanup pass. */
 export async function moreFiles(
   rootDir: string,
   pathList: string,

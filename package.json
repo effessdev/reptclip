@@ -126,6 +126,7 @@
     "typescript": "^5.5.0"
   },
   "dependencies": {
+    "grepts": "^0.0.1",
     "ignore": "^5.3.1",
     "micromatch": "^4.0.8"
   }

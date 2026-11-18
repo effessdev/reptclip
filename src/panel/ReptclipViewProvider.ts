@@ -8,7 +8,8 @@ import {
   getConfiguredDefaultUiState,
   hasSavedProjectState,
 } from "../core/projectStorage";
-import { generateContext, moreFiles } from "../core/generateContext";
+import { generateContext } from "../core/generateContext";
+import { moreContext } from "../core/moreContext";
 import { copyToClipboard, readClipboard } from "../core/clipboard";
 import {
   applyDiffs,
@@ -255,7 +256,7 @@ export class ReptclipViewProvider implements vscode.WebviewViewProvider {
             return;
           }
 
-          case "moreFiles": {
+          case "moreContext": {
             if (!rootDir) {
               vscode.window.showWarningMessage(
                 "ReptClip: open a folder first.",
@@ -269,18 +270,11 @@ export class ReptclipViewProvider implements vscode.WebviewViewProvider {
               const clipboardText = await readClipboard();
               if (!clipboardText.trim()) {
                 throw new Error(
-                  "Clipboard is empty. Please copy the list of the file paths first.",
+                  "Clipboard is empty. Please copy cat/grep commands first.",
                 );
               }
 
-              const result = await moreFiles(
-                rootDir,
-                clipboardText,
-                message.state.files,
-              );
-              if (message.state.files && result.includedFiles.length === 0) {
-                throw new Error("No file paths found in the clipboard.");
-              }
+              const result = await moreContext(rootDir, clipboardText);
 
               if (message.state.clipboard) {
                 await copyToClipboard(result.markdown);
@@ -299,7 +293,7 @@ export class ReptclipViewProvider implements vscode.WebviewViewProvider {
                 fileCount: result.includedFiles.length,
               });
               vscode.window.setStatusBarMessage(
-                `ReptClip: added ${result.includedFiles.length} file(s)`,
+                `ReptClip: more context (${result.commandCount} command(s), ${result.includedFiles.length} file(s))`,
                 3000,
               );
             } catch (err) {
