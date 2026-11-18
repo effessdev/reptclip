@@ -1,1 +1,0 @@
-- checkbox to display the number of lines next to the file in project structure.
