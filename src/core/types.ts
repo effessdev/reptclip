@@ -82,7 +82,7 @@ export type HostToWebviewMessage =
 export type WebviewToHostMessage =
   | { type: "stateChanged"; state: UiState }
   | { type: "run"; state: UiState }
-  | { type: "moreFiles"; state: UiState }
+  | { type: "moreContext"; state: UiState }
   | { type: "applyDiffs" }
   | { type: "undo" }
   | { type: "redo" }

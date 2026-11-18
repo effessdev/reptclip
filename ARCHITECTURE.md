@@ -48,7 +48,7 @@ Three layers:
   - `countFileLines(absPath: string): Promise<number | undefined>` — Counts a file's raw lines, returning `undefined` for missing, oversized, or binary files.
 - `generateContext.ts`
   - `generateContext(rootDir: string, state: UiState, showLineCounts?: boolean): Promise<GenerateResult>` — Builds the Markdown context for the selected project files, optionally annotating the project structure with per-file line counts.
-  - `moreFiles(rootDir: string, pathList: string, includeFiles?: boolean): Promise<GenerateResult>` — Embeds a clipboard-provided list of file paths.
+  - `moreFiles(rootDir: string, pathList: string, includeFiles?: boolean): Promise<GenerateResult>` — Deprecated: embeds a clipboard-provided list of file paths; superseded by `moreContext`.
 - `gitignoreScanner.ts`
   - `collectNonIgnoredFiles(rootDir: string): Promise<string[]>` — Recursively enumerates all non-ignored project files.
   - `createEmbeddingGuard(rootDir: string): (relPath: string) => Promise<EmbedVerdict>` — Validates whether a relative path may be embedded safely.
@@ -56,6 +56,10 @@ Three layers:
   - `No exported functions` — Regression tests for Markdown serialization and formatting.
 - `markdownBuilder.ts`
   - `buildMarkdown(input: BuildMarkdownInput): string` — Assembles the final prompt text from project structure, file contents, and optional sections.
+- `moreContext.ts`
+  - `parseMoreContextCommands(text: string): MoreContextCommand[]` — Parses clipboard lines into `cat`/`grep` commands, collecting per-line errors for malformed input.
+  - `moreContext(rootDir: string, commandText: string): Promise<MoreContextResult>` — Validates all commands up front, embeds `cat` files through the shared guard/read pipeline, runs `grep` searches via grepts, and returns one Markdown section per command.
+  - `MoreContextCommand`, `GrepRequest`, `MoreContextResult` — Typed shapes for parsed commands, supported grep flags, and the generated supplement.
 - `outputWriter.ts`
   - `writeOutputFile(rootDir: string, outputPath: string, content: string): Promise<void>` — Writes generated output to a file, creating directories as needed.
 - `patternMatcher.ts`

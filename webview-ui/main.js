@@ -17,7 +17,7 @@
     output: document.getElementById("output"),
     runBtn: document.getElementById("runBtn"),
     applyBtn: document.getElementById("applyBtn"),
-    moreFilesBtn: document.getElementById("moreFilesBtn"),
+    moreContextBtn: document.getElementById("moreContextBtn"),
     undoBtn: document.getElementById("undoBtn"),
     redoBtn: document.getElementById("redoBtn"),
     status: document.getElementById("status"),
@@ -270,11 +270,11 @@
     vscode.postMessage({ type: "redo" });
   }
 
-  // The host reads a list of relative file paths from the clipboard and
-  // embeds those files' contents, honoring the same output options as Generate.
-  function moreFilesFromClipboard() {
+  // The host reads cat/grep commands from the clipboard, embeds the named
+  // files, runs the searches, and honors the same output options as Generate.
+  function moreContextFromClipboard() {
     setStatus("Working…");
-    vscode.postMessage({ type: "moreFiles", state: currentState() });
+    vscode.postMessage({ type: "moreContext", state: currentState() });
   }
 
   // --- Autocomplete -------------------------------------------------------
@@ -537,7 +537,7 @@
   });
 
   els.runBtn.addEventListener("click", run);
-  els.moreFilesBtn.addEventListener("click", moreFilesFromClipboard);
+  els.moreContextBtn.addEventListener("click", moreContextFromClipboard);
   els.applyBtn.addEventListener("click", applyFromClipboard);
   els.undoBtn.addEventListener("click", undo);
   els.redoBtn.addEventListener("click", redo);
@@ -568,7 +568,7 @@
       syncPatternFieldHeights();
       els.warning.hidden = message.hasWorkspace;
       els.runBtn.disabled = !message.hasWorkspace;
-      els.moreFilesBtn.disabled = !message.hasWorkspace;
+      els.moreContextBtn.disabled = !message.hasWorkspace;
       els.applyBtn.disabled = !message.hasWorkspace;
       els.undoBtn.disabled = !message.hasWorkspace || !message.canUndo;
       els.redoBtn.disabled = !message.hasWorkspace || !message.canRedo;

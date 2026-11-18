@@ -277,7 +277,7 @@ input[type="text"]:focus {
 
 button#runBtn,
 button#applyBtn,
-button#moreFilesBtn,
+button#moreContextBtn,
 button#undoBtn,
 button#redoBtn {
   background: var(--vscode-button-background);
@@ -320,7 +320,7 @@ button#redoBtn svg {
 
 button#runBtn:hover,
 button#applyBtn:hover,
-button#moreFilesBtn:hover,
+button#moreContextBtn:hover,
 button#undoBtn:hover,
 button#redoBtn:hover {
   background: var(--vscode-button-hoverBackground);
@@ -329,7 +329,7 @@ button#redoBtn:hover {
 /* Secondary look so "Apply Diffs" reads as a companion action
    to the primary "Generate" button. */
 button#applyBtn,
-button#moreFilesBtn,
+button#moreContextBtn,
 button#undoBtn,
 button#redoBtn {
   background: var(--vscode-button-secondaryBackground, #3a3d41);
@@ -337,7 +337,7 @@ button#redoBtn {
 }
 
 button#applyBtn:hover,
-button#moreFilesBtn:hover,
+button#moreContextBtn:hover,
 button#undoBtn:hover,
 button#redoBtn:hover {
   background: var(--vscode-button-secondaryHoverBackground, #45494e);
@@ -345,7 +345,7 @@ button#redoBtn:hover {
 
 button#runBtn:disabled,
 button#applyBtn:disabled,
-button#moreFilesBtn:disabled,
+button#moreContextBtn:disabled,
 button#undoBtn:disabled,
 button#redoBtn:disabled {
   opacity: 0.5;

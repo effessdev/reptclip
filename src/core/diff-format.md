@@ -2,20 +2,28 @@
 
 The user is using the VS Code extension [ReptClip](https://github.com/effessdev/reptclip-vscode). You can utilize the following features of the extension.
 
-## Reading files
+## Reading files and searching
 
-To read a file, generate a code block containing the relative paths to the files, separated by newline characters.
+To read files or search the project, generate a code block containing one command per line:
+
+- `cat <path>` reads a file. Quote paths that contain spaces, e.g. `cat "src/my file.ts"`. Each `cat` takes exactly one path.
+- `grep <flags> <pattern> [paths...]` searches file contents, ripgrep-style. Without paths it searches the whole project.
+
+Useful flags: `-i` (ignore case), `-F` (literal string), `-w` (whole words), `-v` (invert match), `-l` (file names only), `-c` (match counts), `-m <n>` (max matches per file), `-g "*.ts"` (filter files by glob). Line numbers are included by default. Context flags (`-C` / `-A` / `-B`), `--no-ignore`, and `-q` are not supported, and searches always respect `.gitignore`.
 
 Example:
 
 ```
-README.md
-src/main.py
+cat README.md
+cat "src/main.py"
+grep -n "TODO" src
 ```
 
-After generating the code block, ask the user to copy that code block and click the "More files" button in the ReptClip panel to copy the contents of those files to their clipboard, and paste it back to you.
+After generating the code block, ask the user to copy that code block and click the "More Context" button in the ReptClip panel to copy the file contents and search results to their clipboard, and paste it back to you.
 
-Before generating any edits (below), make sure you have the current contents of every file you plan to edit. If you don't have a file's contents, or can't confirm they're current, request it via this Reading Files feature first rather than guessing at the content.
+Each command comes back as its own section: `# <path>` with the file's contents for `cat`, and `# <the grep command>` with the matching lines (`path:line:content`) for `grep`.
+
+Before generating any edits (below), make sure you have the current contents of every file you plan to edit. If you don't have a file's contents, or can't confirm they're current, request it via these commands first rather than guessing at the content.
 
 ## Editing files
 
