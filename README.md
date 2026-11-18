@@ -33,9 +33,9 @@ The chatbot will provide the diffs in a single code block. Copy them, and click 
 
 <img width="1152" alt="Applying diffs" src="https://github.com/user-attachments/assets/881f3a25-8d73-4376-8890-c89fb0157614" />
 
-### Optional step (before step 3): Add more files to the context
+### Optional step (before step 3): Add more context
 
-If the chatbot wants to see more files, it will generate a code block containing the relative paths of the files. You can copy that block and click the "More Files" button to copy the contents of those files only to the clipboard, and paste it back to the chatbot.
+If the chatbot wants to see more files or search the project, it will generate a code block containing `cat` and `grep` commands. You can copy that block and click the "More Context" button to copy the requested file contents and search results to the clipboard, and paste it back to the chatbot.
 
 > **A little behind-the-scenes:** Every animated WebP you see above was captured, edited, and exported using [GiffyPy](https://github.com/effessdev/GiffyPy), an all-in-one screen recording and video editing tool that I built myself.
 
@@ -58,7 +58,7 @@ The generated context has the following sections (**each one can be toggled ON o
 - **Files:** the files you included in the context.
 - **Prompt section:** an empty `# Prompt\n\n` section to type in your prompt.
 
-The included files are placed between the "AI instructions" section and the "Prompt" section. You can include files to the context by either entering the relative paths of them or a matching glob pattern in the **Files to include** textarea, separated by spaces. Mid-conversation additions are handled by the **More Files** button (see [Adding files to context](#adding-files-to-context)).
+The included files are placed between the "AI instructions" section and the "Prompt" section. You can include files to the context by either entering the relative paths of them or a matching glob pattern in the **Files to include** textarea, separated by spaces. Mid-conversation additions are handled by the **More Context** button (see [Adding more context](#adding-more-context)).
 
 Example generated context (only `AGENTS.md` is included):
 
@@ -79,20 +79,24 @@ src/main.py (387)
 
 The user is using the VS Code extension [ReptClip](https://github.com/effessdev/reptclip-vscode). You can utilize the following features of the extension.
 
-## Reading files
+## Reading files and searching
 
-To read a file, generate a code block containing the relative paths to the files, separated by newline characters.
+To read files or search the project, generate a code block containing one command per line:
+
+- `cat <path>` reads a file. Quote paths that contain spaces, e.g. `cat "src/my file.ts"`. Each `cat` takes exactly one path.
+- `grep <flags> <pattern> [paths...]` searches file contents, ripgrep-style. Without paths it searches the whole project.
 
 Example:
 
 ```
-README.md
-src/main.py
+cat README.md
+cat "src/main.py"
+grep -n "TODO" src
 ```
 
-After generating the code block, ask the user to copy that code block and click the "More files" button in the ReptClip panel to copy the contents of those files to their clipboard, and paste it back to you.
+After generating the code block, ask the user to copy that code block and click the "More Context" button in the ReptClip panel to copy the file contents and search results to their clipboard, and paste it back to you.
 
-Before generating any edits (below), make sure you have the current contents of every file you plan to edit. If you don't have a file's contents, or can't confirm they're current, request it via this Reading Files feature first rather than guessing at the content.
+Before generating any edits (below), make sure you have the current contents of every file you plan to edit. If you don't have a file's contents, or can't confirm they're current, request it via these commands first rather than guessing at the content.
 
 ## Editing files
 
@@ -201,7 +205,7 @@ You can uncheck "Copy to clipboard" to turn it off.
 
 - **Oversized and binary files are skipped automatically**, replaced by a descriptive placeholder in the output (limit: 1 MB; binaries detected via NUL-byte sniffing), they still appear in the project structure listing — without a line count, since the same limit and binary check decide whether one can be shown.
 
-- **There is no second implementation for "More Files" to worry about.** Its file list comes from the clipboard instead of the pattern textareas, but the path check and the reads go through the exact same pipeline as Generate. Same `.gitignore` enforcement, same size/binary guards, same Markdown builder. The only difference is what gets wrapped around the files: More Files embeds the listed files alone, no project structure, "AI instructions", or "Prompt" sections, so a mid-conversation supplement pastes cleanly on top of what the chatbot already has.
+- **There is no second implementation for "More Context" to worry about.** Its commands come from the clipboard instead of the pattern textareas, but `cat` paths are checked and read through the exact same pipeline as Generate: same `.gitignore` enforcement, same size/binary guards, same Markdown builder. `grep` runs in-process via [grepts](https://github.com/ahmadawais/grepts) with `.gitignore` respect forced on (`--no-ignore` is refused), and every matched file is re-checked through the same embedding guard before any of its lines are embedded. The only difference is what gets wrapped around the results: More Context emits the requested file and search sections alone, no project structure, "AI instructions", or "Prompt" sections, so a mid-conversation supplement pastes cleanly on top of what the chatbot already has.
 
 ### Write context to file
 
@@ -237,7 +241,7 @@ If you have turned on the "AI instructions" section, the AI will generate the di
 
 Next to the status message, **Undo** and **Redo** buttons step backward and forward through your last 10 applied diffs (each "Apply Diffs" click counts as one checkpoint). Undo restores every file touched by that diff to its exact pre-apply state — including recreating a file the diff deleted, or deleting one it created — and Redo reverses that. Both buttons are greyed out when there's nothing to step to. This history is kept in memory for the current VS Code session, separately from your regular per-file `Ctrl + Z` undo, and from the single remembered "already applied" fingerprint used to warn against re-applying the same diff.
 
-### Adding files to context
+### Adding more context
 
 #### Up front: the pattern textareas
 
@@ -257,15 +261,46 @@ Include `AGENTS.md`, all Python files, but exclude `src/secret.py` and all Pytho
 - **Files to include:** `AGENTS.md **/*.py src/main.py`
 - **Files to exclude:** `src/secret.py src/**/*.py`
 
-#### Mid-conversation: the "More Files" button
+#### Mid-conversation: the "More Context" button
 
-Paste-ready lists of paths don't come only from you. The "AI instructions" section explicitly instructs the chatbot to emit one when it needs more context. Copy that list, click **More Files**, and the button does the rest: it reads the clipboard, embeds those files, and (depending on your settings) puts the result back on the clipboard and/or writes it to the "Output file".
+Paste-ready command blocks don't come only from you. The "AI instructions" section explicitly instructs the chatbot to emit one when it needs more context. Copy that block, click **More Context**, and the button does the rest: it reads the clipboard, runs the commands, and (depending on your settings) puts the result back on the clipboard and/or writes it to the "Output file".
+
+Each non-empty line is one command, and the results appear in the order you pasted:
+
+- **`cat <path>`** reads a file, e.g. `cat src/main.py` or `cat "docs/my file.md"`. Paths are quote-aware, but each `cat` takes exactly one path — `cat this fails` is an error, not two files.
+- **`grep <flags> <pattern> [paths...]`** searches file contents using [grepts](https://github.com/ahmadawais/grepts), a TypeScript grep that runs in-process (no subprocess). Without paths it searches the whole project; with paths it searches only those files and directories.
+
+For example, this clipboard block:
+
+```
+cat "main.py"
+grep -n "TODO" src
+```
+
+produces this output:
+
+````
+# main.py
+
+```
+Contents of main.py
+```
+
+# grep -n "TODO" src
+
+```
+src/app.py:12:# TODO: handle errors
+src/util.py:3:# TODO rename
+```
+````
 
 Here's what actually happens, in order:
 
-1. **Parsing is line-by-line and forgiving where it should be, strict where it must be.** Each line is trimmed and treated as one relative path. Empty lines (including runs of consecutive newlines) are skipped the way Python's `str.split()` skips empty pieces, and duplicates collapse to their first occurrence. The order you pasted is the order they're embedded in.
-2. **Pre-flight validation, all-or-nothing.** Before a single file is read, every path clears the embedding guard and is `fs.stat`-ed against the workspace root. Anything unacceptable fails the check: not found, a directory rather than a file, ignored by `.gitignore`, inside `.git`, absolute, or resolving outside the project root. Nothing is copied, nothing is written, no half-baked context reaches your clipboard; instead the panel names each offender and why, e.g. `Cannot embed: src/secret.env (ignored by .gitignore), old.py (not found)`. You fix the list and click again.
-3. **Only then does it build.** The surviving paths are read through the shared pipeline (1 MB limit, binary detection, descriptive placeholders) and formatted by the same Markdown builder used by Generate — but with only the file sections: the Project structure / AI instructions / Prompt section checkboxes are deliberately not applied, since those were already sent when you first generated the context.
+1. **Parsing is line-by-line and forgiving where it should be, strict where it must be.** Each line is trimmed and split into quote-aware tokens, and empty lines (including runs of consecutive newlines) are skipped. The first token must be `cat` or `grep` — anything else is an error.
+2. **Pre-flight validation, all-or-nothing.** Before anything runs, every command is checked. `cat` paths clear the embedding guard and are `fs.stat`-ed against the workspace root: not found, a directory rather than a file, ignored by `.gitignore`, inside `.git`, absolute, or resolving outside the project root all fail the check. `grep` commands are parsed and validated up front too: invalid patterns, paths that fail the same checks, and unsupported flags all fail the check. Nothing is copied, nothing is written, no half-baked context reaches your clipboard; instead the panel names each offender and why. You fix the block and click again.
+3. **Only then does it build.** `cat` files are read through the shared pipeline (1 MB limit, binary detection, descriptive placeholders) and formatted by the same Markdown builder used by Generate. `grep` searches run in-process via grepts with `.gitignore` respect forced on, and matched files are re-checked through the embedding guard before their lines are embedded. Each command becomes one section — `# <path>` for `cat`, `# <the grep command as typed>` for `grep` — with the file contents or search output in a code fence. The Project structure / AI instructions / Prompt section checkboxes are deliberately not applied, since those were already sent when you first generated the context.
+
+Supported `grep` flags: `-i` (ignore case), `-n` (line numbers, on by default), `-N` / `--no-line-number`, `-c` (count per file), `-l` (files with matches), `--files-without-match`, `-w` (whole words), `-F` (literal string), `-g <glob>` (filter files, e.g. `-g "*.ts"`), `-m <n>` (max matches per file), `-v` / `--invert-match`, `-U` (multiline), `--hidden`, `--max-depth <n>`, and `-e <pattern>`. Combined short flags (`-rn`) and `--` work too, and `-r` / `-R` / `-E` / `--no-color` are accepted as no-ops. Context flags (`-C` / `-A` / `-B`) are not supported by grepts yet and are rejected, as are `--no-ignore` (ignored files are never searched) and `-q` / `--quiet` (they would produce no output).
 
 ## Settings
 
