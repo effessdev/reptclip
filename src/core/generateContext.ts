@@ -6,13 +6,14 @@ import {
 } from "./gitignoreScanner";
 import { selectFiles } from "./patternMatcher";
 import { tokenize } from "./tokenizer";
-import { readFileSafe } from "./fileGuards";
+import { readFileSafe, countFileLines } from "./fileGuards";
 import { buildMarkdown } from "./markdownBuilder";
 import { GenerateResult, UiState } from "./types";
 
 export async function generateContext(
   rootDir: string,
   state: UiState,
+  showLineCounts: boolean = true,
 ): Promise<GenerateResult> {
   const allFiles = await collectNonIgnoredFiles(rootDir);
 
@@ -22,6 +23,11 @@ export async function generateContext(
     ? selectFiles(allFiles, includePatterns, excludePatterns)
     : [];
 
+  const lineCounts =
+    state.projectStructure && showLineCounts
+      ? await collectLineCounts(rootDir, allFiles)
+      : undefined;
+
   return buildContext(
     rootDir,
     {
@@ -29,10 +35,31 @@ export async function generateContext(
       includeDiffFormat: state.diffFormat,
       includeFiles: state.files,
       includePromptTail: state.promptTail,
+      lineCounts,
     },
     includedFiles,
     allFiles,
   );
+}
+
+/**
+ * Counts raw lines per file for the "Project structure" listing. A file that
+ * `countFileLines` can't count (oversized or binary) is left out of the map
+ * entirely, so it renders in the listing with no count rather than a 0.
+ */
+async function collectLineCounts(
+  rootDir: string,
+  files: string[],
+): Promise<Record<string, number | undefined>> {
+  const counts: Record<string, number | undefined> = {};
+  for (const relPath of files) {
+    try {
+      counts[relPath] = await countFileLines(path.join(rootDir, relPath));
+    } catch {
+      counts[relPath] = undefined;
+    }
+  }
+  return counts;
 }
 
 /**
@@ -147,6 +174,8 @@ interface SectionOptions {
   includeDiffFormat: boolean;
   includeFiles: boolean;
   includePromptTail: boolean;
+  /** Per-file raw line counts for the "Project structure" listing; omitted entirely when the feature is off. */
+  lineCounts?: Record<string, number | undefined>;
 }
 
 // Reads every selected file and assembles the final Markdown. Shared by
@@ -191,6 +220,7 @@ async function buildContext(
     includeDiffFormat: options.includeDiffFormat,
     includeFiles: options.includeFiles,
     includePromptTail: options.includePromptTail,
+    lineCounts: options.lineCounts,
   });
 
   return { markdown, allFiles, includedFiles };

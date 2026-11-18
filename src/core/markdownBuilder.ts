@@ -6,6 +6,15 @@ export interface BuildMarkdownInput {
   includeDiffFormat: boolean;
   includeFiles: boolean;
   includePromptTail: boolean;
+  /**
+   * Per-file raw line counts to append next to each path in the "Project
+   * structure" listing, e.g. `main.py (120)`. A path missing from the map
+   * (or mapped to `undefined`) renders with no count, for binary/oversized
+   * files. Leave the whole field `undefined` to turn the feature off
+   * entirely — the explanatory sentence below the heading is then omitted
+   * too.
+   */
+  lineCounts?: Record<string, number | undefined>;
 }
 
 // Instruction block appended after the project structure when the
@@ -27,9 +36,16 @@ export function buildMarkdown(input: BuildMarkdownInput): string {
   const parts: string[] = [];
 
   if (input.includeStructure) {
-    parts.push(
-      `# Project structure\n\n\`\`\`\n${input.allFiles.join("\n")}\n\`\`\``,
-    );
+    const lines = input.lineCounts
+      ? input.allFiles.map((file) => {
+          const count = input.lineCounts![file];
+          return count === undefined ? file : `${file} (${count})`;
+        })
+      : input.allFiles;
+    const heading = input.lineCounts
+      ? "# Project structure\n\nThe number in parentheses after a file is its raw line count (including blank lines); binary or unreadable files are listed without one."
+      : "# Project structure";
+    parts.push(`${heading}\n\n\`\`\`\n${lines.join("\n")}\n\`\`\``);
   }
 
   if (input.includeDiffFormat) {

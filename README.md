@@ -53,7 +53,7 @@ If the chatbot wants to see more files, it will generate a code block containing
 
 The generated context has the following sections (**each one can be toggled ON or OFF using checkboxes**):
 
-- **Project structure:** lists the relative paths to all files in the project that have not been ignored using `.gitignore`.
+- **Project structure:** lists the relative paths to all files in the project that have not been ignored using `.gitignore`, with their line count.
 - **AI instructions:** contains the instructions regarding how to generate the output.
 - **Files:** the files you included in the context.
 - **Prompt section:** an empty `# Prompt\n\n` section to type in your prompt.
@@ -65,20 +65,14 @@ Example generated context (only `AGENTS.md` is included):
 ````markdown
 # Project structure
 
+The number in parentheses after a file is its raw line count (including blank lines); binary or unreadable files are listed without one.
+
 ```
-.gitattributes
-.gitignore
-AGENTS.md
-CONTRIBUTING.md
-LICENSE
-README.md
-pipxclip-config.toml
-pyproject.toml
-src/pipxclip/__init__.py
-src/pipxclip/cli.py
-src/pipxclip/config.py
-tests/test_cli.py
-tests/test_config.py
+.gitignore (12)
+AGENTS.md (9)
+README.md (210)
+media/icon.png
+src/main.py (387)
 ```
 
 # AI instructions
@@ -205,7 +199,7 @@ You can uncheck "Copy to clipboard" to turn it off.
 
 - **`.gitignore` is a noise filter, not a secret filter.** A `.env` or key file that is not listed there is embedded verbatim and ends up in the chatbot and on the clipboard. Keep secrets ignored, or name them in **Files to exclude**.
 
-- **Oversized and binary files are skipped automatically**, replaced by a descriptive placeholder in the output (limit: 1 MB; binaries detected via NUL-byte sniffing), they still appear in the project structure listing.
+- **Oversized and binary files are skipped automatically**, replaced by a descriptive placeholder in the output (limit: 1 MB; binaries detected via NUL-byte sniffing), they still appear in the project structure listing — without a line count, since the same limit and binary check decide whether one can be shown.
 
 - **There is no second implementation for "More Files" to worry about.** Its file list comes from the clipboard instead of the pattern textareas, but the path check and the reads go through the exact same pipeline as Generate. Same `.gitignore` enforcement, same size/binary guards, same Markdown builder. The only difference is what gets wrapped around the files: More Files embeds the listed files alone, no project structure, "AI instructions", or "Prompt" sections, so a mid-conversation supplement pastes cleanly on top of what the chatbot already has.
 
@@ -288,5 +282,6 @@ Open VS Code's Settings (`Ctrl+,` / `Cmd+,`) and search for **"ReptClip"** to co
 | `reptclip.defaultPromptTail`        | `true`  | Whether the **Prompt** section is checked by default.                    |
 | `reptclip.defaultOutputFile`        | `""`    | Default value for the **Output file** field.                             |
 | `reptclip.allowProtectedFileWrites` | `false` | Allow diffs that write `.git/**` or `.env*` after a confirmation dialog. |
+| `reptclip.showLineCounts`           | `true`  | Show each file's raw line count in the **Project structure** section.    |
 
 These can be set at the User level (applies to all projects without saved state) or the Workspace level (applies only within that workspace), using VS Code's normal settings scoping.

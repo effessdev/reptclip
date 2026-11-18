@@ -45,8 +45,9 @@ Three layers:
   - `ApplyOptions`, `SnapshotOptions` — Host hooks for confirmations and dirty-buffer overrides passed into `applyDiffs` / `applySnapshot`.
 - `fileGuards.ts`
   - `readFileSafe(absPath: string): Promise<SafeReadResult>` — Reads files defensively, skipping binary or oversized content.
+  - `countFileLines(absPath: string): Promise<number | undefined>` — Counts a file's raw lines, returning `undefined` for missing, oversized, or binary files.
 - `generateContext.ts`
-  - `generateContext(rootDir: string, state: UiState): Promise<GenerateResult>` — Builds the Markdown context for the selected project files.
+  - `generateContext(rootDir: string, state: UiState, showLineCounts?: boolean): Promise<GenerateResult>` — Builds the Markdown context for the selected project files, optionally annotating the project structure with per-file line counts.
   - `moreFiles(rootDir: string, pathList: string, includeFiles?: boolean): Promise<GenerateResult>` — Embeds a clipboard-provided list of file paths.
 - `gitignoreScanner.ts`
   - `collectNonIgnoredFiles(rootDir: string): Promise<string[]>` — Recursively enumerates all non-ignored project files.

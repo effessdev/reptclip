@@ -218,7 +218,14 @@ export class ReptclipViewProvider implements vscode.WebviewViewProvider {
             await saveProjectState(this.context, rootDir, message.state);
 
             try {
-              const result = await generateContext(rootDir, message.state);
+              const showLineCounts = vscode.workspace
+                .getConfiguration("reptclip")
+                .get<boolean>("showLineCounts", true);
+              const result = await generateContext(
+                rootDir,
+                message.state,
+                showLineCounts,
+              );
 
               if (message.state.clipboard) {
                 await copyToClipboard(result.markdown);
@@ -434,7 +441,8 @@ export class ReptclipViewProvider implements vscode.WebviewViewProvider {
                 {
                   bufferOverrides: captured.buffers,
                   assertBuffersCurrent: captured.assertCurrent,
-                  confirmConflict: (paths) => this.confirmDiscard(paths, "undo"),
+                  confirmConflict: (paths) =>
+                    this.confirmDiscard(paths, "undo"),
                 },
               );
               this.pushCheckpoint(this.redoStacks, rootDir, checkpoint);
@@ -486,7 +494,8 @@ export class ReptclipViewProvider implements vscode.WebviewViewProvider {
                 {
                   bufferOverrides: captured.buffers,
                   assertBuffersCurrent: captured.assertCurrent,
-                  confirmConflict: (paths) => this.confirmDiscard(paths, "redo"),
+                  confirmConflict: (paths) =>
+                    this.confirmDiscard(paths, "redo"),
                 },
               );
               this.pushCheckpoint(this.undoStacks, rootDir, checkpoint);

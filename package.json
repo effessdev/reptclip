@@ -100,6 +100,11 @@
           "type": "boolean",
           "default": false,
           "markdownDescription": "Allow applying diffs that write paths ReptClip refuses by default: anything inside `.git` (git executes content from there) and `.env` / `.env.*` files. When enabled, each such apply asks for confirmation."
+        },
+        "reptclip.showLineCounts": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Show each file's raw line count in parentheses next to it in the **Project structure** section, e.g. `main.py (120)`. Binary or unreadable files are listed without one."
         }
       }
     }
