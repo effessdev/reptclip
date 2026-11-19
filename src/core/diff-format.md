@@ -1,6 +1,6 @@
 # AI instructions
 
-The user is using the VS Code extension [ReptClip](https://github.com/effessdev/reptclip-vscode). You can utilize the following features of the extension.
+The user is using the VS Code extension [ReptClip](https://github.com/effessdev/reptclip). You can utilize the following features of the extension.
 
 ## Reading files and searching
 
