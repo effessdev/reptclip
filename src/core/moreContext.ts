@@ -1,7 +1,7 @@
 import * as path from "path";
 import * as fs from "fs/promises";
 import { createEmbeddingGuard } from "./gitignoreScanner";
-import { readFileSafe } from "./fileGuards";
+import { countFileLines, readFileSafe } from "./fileGuards";
 import { tokenize } from "./tokenizer";
 import { GenerateResult } from "./types";
 
@@ -9,13 +9,24 @@ import { GenerateResult } from "./types";
  * "More Context": the clipboard holds commands, one per line.
  * `cat <path>` embeds a file through the same guard/read pipeline as
  * Generate; `grep <flags> <pattern> [paths...]` searches the project with
- * grepts (in-process, no subprocess). Each command becomes one Markdown
- * section headed by the file path (cat) or the command line itself (grep).
+ * grepts (in-process, no subprocess); `read-lines <path> <start_line>
+ * [end_line]` embeds a 1-indexed, inclusive slice of a file through that
+ * same pipeline, clamping `end_line` to the file's last line (or defaulting
+ * it to the last line when omitted). Each command becomes one Markdown
+ * section headed by the file path (cat) or the command line itself (grep,
+ * read-lines).
  */
 
 export type MoreContextCommand =
   | { kind: "cat"; relPath: string; line: string }
-  | { kind: "grep"; request: GrepRequest; line: string };
+  | { kind: "grep"; request: GrepRequest; line: string }
+  | {
+      kind: "readLines";
+      relPath: string;
+      startLine: number;
+      endLine?: number;
+      line: string;
+    };
 
 /** The grep flags we support, mapped 1:1 onto grepts' SearchOptions. */
 export interface GrepRequest {
@@ -143,7 +154,12 @@ function parseCommand(line: string): MoreContextCommand {
   if (command === "grep") {
     return { kind: "grep", request: parseGrepArgs(args), line };
   }
-  throw new Error(`unknown command "${command}"; expected cat or grep`);
+  if (command === "read-lines") {
+    return { kind: "readLines", ...parseReadLinesArgs(args), line };
+  }
+  throw new Error(
+    `unknown command "${command}"; expected cat, grep, or read-lines`,
+  );
 }
 
 function parsePositiveInt(value: string, label: string): number {
@@ -151,6 +167,32 @@ function parsePositiveInt(value: string, label: string): number {
     throw new Error(`${label} expects a positive integer`);
   }
   return Number(value);
+}
+
+/**
+ * Parses `read-lines <file_path> <start_line> [end_line]`. Both line
+ * numbers are 1-indexed; `end_line`, when given, must be >= `start_line`.
+ * Whether `start_line` itself is in range depends on the file, so that
+ * check happens later, during validation.
+ */
+function parseReadLinesArgs(args: string[]): {
+  relPath: string;
+  startLine: number;
+  endLine?: number;
+} {
+  if (args.length !== 2 && args.length !== 3) {
+    throw new Error("read-lines requires <file_path> <start_line> [end_line]");
+  }
+  const [relPath, startLineRaw, endLineRaw] = args;
+  const startLine = parsePositiveInt(startLineRaw, "start_line");
+  if (endLineRaw === undefined) {
+    return { relPath, startLine };
+  }
+  const endLine = parsePositiveInt(endLineRaw, "end_line");
+  if (endLine < startLine) {
+    throw new Error("end_line must be >= start_line");
+  }
+  return { relPath, startLine, endLine };
 }
 
 /**
@@ -323,7 +365,15 @@ function parseGrepArgs(args: string[]): GrepRequest {
 
 type ValidatedCommand =
   | { kind: "cat"; relPath: string; absPath: string; line: string }
-  | { kind: "grep"; request: GrepRequest; absPaths: string[]; line: string };
+  | { kind: "grep"; request: GrepRequest; absPaths: string[]; line: string }
+  | {
+      kind: "readLines";
+      relPath: string;
+      absPath: string;
+      startLine: number;
+      endLine?: number;
+      line: string;
+    };
 
 /**
  * Pre-flight, all-or-nothing: every cat path must clear the embedding guard
@@ -362,6 +412,42 @@ async function validateCommands(
         kind: "cat",
         relPath: command.relPath,
         absPath,
+        line: command.line,
+      });
+      continue;
+    }
+    if (command.kind === "readLines") {
+      const verdict = await guard(command.relPath);
+      if (!verdict.ok) {
+        rejected.push(
+          `${command.relPath} (${verdict.reason ?? "cannot be embedded"})`,
+        );
+        continue;
+      }
+      const absPath = verdict.absPath ?? path.join(rootDir, command.relPath);
+      try {
+        const stat = await fs.stat(absPath);
+        if (!stat.isFile()) {
+          rejected.push(`${command.relPath} (not a file)`);
+          continue;
+        }
+      } catch {
+        rejected.push(`${command.relPath} (not found)`);
+        continue;
+      }
+      const totalLines = await countFileLines(absPath);
+      if (totalLines !== undefined && command.startLine > totalLines) {
+        rejected.push(
+          `${command.relPath} (start_line ${command.startLine} exceeds file's line count of ${totalLines})`,
+        );
+        continue;
+      }
+      validated.push({
+        kind: "readLines",
+        relPath: command.relPath,
+        absPath,
+        startLine: command.startLine,
+        endLine: command.endLine,
         line: command.line,
       });
       continue;
@@ -472,6 +558,31 @@ async function runGrep(
   return lines.length > 0 ? lines.join("\n") : "(no matches)";
 }
 
+/**
+ * Slices a 1-indexed, inclusive line range out of a file's content. Line
+ * counting matches `countFileLines`: a trailing newline does not count as
+ * an extra blank line. `endLine` is clamped to the file's last line (or
+ * defaults to it when omitted), so a range that runs past the end of the
+ * file simply stops there.
+ */
+function sliceLines(
+  content: string,
+  startLine: number,
+  endLine: number | undefined,
+): string {
+  const lines = content.split(/\r\n|\r|\n/);
+  if (
+    lines.length > 0 &&
+    lines[lines.length - 1] === "" &&
+    /(?:\r\n|\r|\n)$/.test(content)
+  ) {
+    lines.pop();
+  }
+  const end =
+    endLine === undefined ? lines.length : Math.min(endLine, lines.length);
+  return lines.slice(startLine - 1, end).join("\n");
+}
+
 /** One Markdown section; the fence grows past any backtick run in the body. */
 function renderSection(heading: string, body: string): string {
   const text = body.trimEnd();
@@ -511,6 +622,20 @@ export async function moreContext(
             ? `[${result.reason}]`
             : (result.content ?? "");
       sections.push(renderSection(command.relPath, content));
+      includedFiles.push(command.relPath);
+    } else if (command.kind === "readLines") {
+      const result = await readFileSafe(command.absPath).catch(() => undefined);
+      const content =
+        result === undefined
+          ? "[File not found]"
+          : result.skipped
+            ? `[${result.reason}]`
+            : sliceLines(
+                result.content ?? "",
+                command.startLine,
+                command.endLine,
+              );
+      sections.push(renderSection(command.line, content));
       includedFiles.push(command.relPath);
     } else {
       const output = await runGrep(

@@ -85,6 +85,7 @@ To read files or search the project, generate a code block containing one comman
 
 - `cat <path>` reads a file. Quote paths that contain spaces, e.g. `cat "src/my file.ts"`. Each `cat` takes exactly one path.
 - `grep <flags> <pattern> [paths...]` searches file contents, ripgrep-style. Without paths it searches the whole project.
+- `read-lines <path> <start_line> [end_line]` reads a 1-indexed, inclusive range of lines from a file, e.g. `read-lines src/main.py 10 25`. Omit `end_line` to read to the end of the file; an `end_line` past the end of the file is simply clamped to it.
 
 Useful flags: `-i` (ignore case), `-F` (literal string), `-w` (whole words), `-v` (invert match), `-l` (file names only), `-c` (match counts), `-m <n>` (max matches per file), `-g "*.ts"` (filter files by glob). Line numbers are included by default. Context flags (`-C` / `-A` / `-B`), `--no-ignore`, and `-q` are not supported, and searches always respect `.gitignore`.
 
@@ -94,11 +95,12 @@ Example:
 cat README.md
 cat "src/main.py"
 grep -n "TODO" src
+read-lines src/main.py 10 25
 ```
 
 After generating the code block, ask the user to copy that code block and click the "More Context" button in the ReptClip panel to copy the file contents and search results to their clipboard, and paste it back to you.
 
-Each command comes back under a top-level `# Files` section: `## <path>` contains a `cat` file's contents, and `## <the grep command>` contains matching lines (`path:line:content`) for `grep`.
+Each command comes back under a top-level `# Files` section: `## <path>` contains a `cat` file's contents, `## <the grep command>` contains matching lines (`path:line:content`) for `grep`, and `## <the read-lines command>` contains the requested line range for `read-lines`.
 
 Before generating any edits (below), make sure you have the current contents of every file you plan to edit. If you don't have a file's contents, or can't confirm they're current, request it via these commands first rather than guessing at the content.
 
@@ -275,6 +277,7 @@ Each non-empty line is one command, and the results appear in the order you past
 
 - **`cat <path>`** reads a file, e.g. `cat src/main.py` or `cat "docs/my file.md"`. Paths are quote-aware, but each `cat` takes exactly one path — `cat this fails` is an error, not two files.
 - **`grep <flags> <pattern> [paths...]`** searches file contents using [grepts](https://github.com/ahmadawais/grepts), a TypeScript grep that runs in-process (no subprocess). Without paths it searches the whole project; with paths it searches only those files and directories.
+- **`read-lines <path> <start_line> [end_line]`** reads a 1-indexed, inclusive range of lines from a file, e.g. `read-lines src/main.py 10 25`. `end_line` is optional — omit it to read to the end of the file — and if it's higher than the file's total line count, the range is simply clamped to the end of the file instead of erroring.
 
 For example, this clipboard block:
 
@@ -304,9 +307,9 @@ src/util.py:3:# TODO rename
 
 Here's what actually happens, in order:
 
-1. **Parsing is line-by-line and forgiving where it should be, strict where it must be.** Each line is trimmed and split into quote-aware tokens, and empty lines (including runs of consecutive newlines) are skipped. The first token must be `cat` or `grep` — anything else is an error.
-2. **Pre-flight validation, all-or-nothing.** Before anything runs, every command is checked. `cat` paths clear the embedding guard and are `fs.stat`-ed against the workspace root: not found, a directory rather than a file, ignored by `.gitignore`, inside `.git`, absolute, or resolving outside the project root all fail the check. `grep` commands are parsed and validated up front too: invalid patterns, paths that fail the same checks, and unsupported flags all fail the check. Nothing is copied, nothing is written, no half-baked context reaches your clipboard; instead the panel names each offender and why. You fix the block and click again.
-3. **Only then does it build.** `cat` files are read through the shared pipeline (1 MB limit, binary detection, descriptive placeholders) and formatted by the same Markdown builder used by Generate. `grep` searches run in-process via grepts with `.gitignore` respect forced on, and matched files are re-checked through the embedding guard before their lines are embedded. The results are placed under `# Files`, with one `## <path>` or `## <the grep command as typed>` subsection per command, and each subsection contains a code fence. The Project structure / AI instructions / Prompt section checkboxes are deliberately not applied, since those were already sent when you first generated the context.
+1. **Parsing is line-by-line and forgiving where it should be, strict where it must be.** Each line is trimmed and split into quote-aware tokens, and empty lines (including runs of consecutive newlines) are skipped. The first token must be `cat`, `grep`, or `read-lines` — anything else is an error.
+2. **Pre-flight validation, all-or-nothing.** Before anything runs, every command is checked. `cat` and `read-lines` paths clear the embedding guard and are `fs.stat`-ed against the workspace root: not found, a directory rather than a file, ignored by `.gitignore`, inside `.git`, absolute, or resolving outside the project root all fail the check; `read-lines` additionally fails if `start_line` is past the file's actual line count. `grep` commands are parsed and validated up front too: invalid patterns, paths that fail the same checks, and unsupported flags all fail the check. Nothing is copied, nothing is written, no half-baked context reaches your clipboard; instead the panel names each offender and why. You fix the block and click again.
+3. **Only then does it build.** `cat` and `read-lines` files are read through the shared pipeline (1 MB limit, binary detection, descriptive placeholders); `read-lines` then slices out the requested 1-indexed, inclusive line range (clamping `end_line` to the file's last line, or defaulting to it when omitted) before formatting. `grep` searches run in-process via grepts with `.gitignore` respect forced on, and matched files are re-checked through the embedding guard before their lines are embedded. The results are placed under `# Files`, with one `## <path>` (`cat`) or `## <the command as typed>` (`grep`, `read-lines`) subsection per command, and each subsection contains a code fence. The Project structure / AI instructions / Prompt section checkboxes are deliberately not applied, since those were already sent when you first generated the context.
 
 Supported `grep` flags: `-i` (ignore case), `-n` (line numbers, on by default), `-N` / `--no-line-number`, `-c` (count per file), `-l` (files with matches), `--files-without-match`, `-w` (whole words), `-F` (literal string), `-g <glob>` (filter files, e.g. `-g "*.ts"`), `-m <n>` (max matches per file), `-v` / `--invert-match`, `-U` (multiline), `--hidden`, `--max-depth <n>`, and `-e <pattern>`. Combined short flags (`-rn`) and `--` work too, and `-r` / `-R` / `-E` / `--no-color` are accepted as no-ops. Context flags (`-C` / `-A` / `-B`) are not supported by grepts yet and are rejected, as are `--no-ignore` (ignored files are never searched) and `-q` / `--quiet` (they would produce no output).
 

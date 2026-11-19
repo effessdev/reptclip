@@ -130,6 +130,62 @@ test("parseMoreContextCommands handles -- end of flags", () => {
   assert.equal((commands[0] as any).request.pattern, "-TODO");
 });
 
+test("parseMoreContextCommands parses read-lines without end_line", () => {
+  const commands = parseMoreContextCommands("read-lines src/main.ts 10");
+  assert.deepEqual(commands, [
+    {
+      kind: "readLines",
+      relPath: "src/main.ts",
+      startLine: 10,
+      endLine: undefined,
+      line: "read-lines src/main.ts 10",
+    },
+  ]);
+});
+
+test("parseMoreContextCommands parses read-lines with end_line", () => {
+  const commands = parseMoreContextCommands("read-lines src/main.ts 10 20");
+  assert.equal(commands.length, 1);
+  const cmd = commands[0] as any;
+  assert.equal(cmd.kind, "readLines");
+  assert.equal(cmd.startLine, 10);
+  assert.equal(cmd.endLine, 20);
+});
+
+test("parseMoreContextCommands parses quoted paths for read-lines", () => {
+  const commands = parseMoreContextCommands('read-lines "my file.txt" 1 5');
+  assert.equal((commands[0] as any).relPath, "my file.txt");
+});
+
+test("parseMoreContextCommands throws for read-lines with wrong number of args", () => {
+  assert.throws(
+    () => parseMoreContextCommands("read-lines src/main.ts"),
+    /read-lines requires <file_path> <start_line> \[end_line\]/,
+  );
+  assert.throws(
+    () => parseMoreContextCommands("read-lines src/main.ts 1 2 3"),
+    /read-lines requires <file_path> <start_line> \[end_line\]/,
+  );
+});
+
+test("parseMoreContextCommands throws for read-lines with non-positive start_line", () => {
+  assert.throws(
+    () => parseMoreContextCommands("read-lines src/main.ts 0"),
+    /start_line expects a positive integer/,
+  );
+  assert.throws(
+    () => parseMoreContextCommands("read-lines src/main.ts -1"),
+    /start_line expects a positive integer/,
+  );
+});
+
+test("parseMoreContextCommands throws for read-lines with end_line below start_line", () => {
+  assert.throws(
+    () => parseMoreContextCommands("read-lines src/main.ts 10 5"),
+    /end_line must be >= start_line/,
+  );
+});
+
 test("moreContext runs valid cat command and returns markdown", async () => {
   const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), "reptclip-morecat-"));
   const filePath = path.join(rootDir, "example.ts");
@@ -159,6 +215,46 @@ test("moreContext runs valid grep command and returns markdown", async () => {
   assert.ok(result.markdown.startsWith("# Files\n\n"));
   assert.ok(result.markdown.includes("## grep TODO example.ts"));
   assert.ok(result.markdown.includes("TODO: fix this"));
+});
+
+test("moreContext runs read-lines command and returns the requested range", async () => {
+  const rootDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), "reptclip-morereadlines-"),
+  );
+  const filePath = path.join(rootDir, "example.ts");
+  await fs.writeFile(filePath, "line1\nline2\nline3\nline4\nline5\n", "utf8");
+
+  const result = await moreContext(rootDir, "read-lines example.ts 2 4");
+  assert.equal(result.commandCount, 1);
+  assert.deepEqual(result.includedFiles, ["example.ts"]);
+  assert.ok(result.markdown.includes("## read-lines example.ts 2 4"));
+  assert.ok(result.markdown.includes("line2\nline3\nline4"));
+  assert.ok(!result.markdown.includes("line1"));
+  assert.ok(!result.markdown.includes("line5"));
+});
+
+test("moreContext clamps end_line past the end of the file", async () => {
+  const rootDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), "reptclip-morereadclamp-"),
+  );
+  const filePath = path.join(rootDir, "example.ts");
+  await fs.writeFile(filePath, "line1\nline2\nline3\n", "utf8");
+
+  const result = await moreContext(rootDir, "read-lines example.ts 2 100");
+  assert.ok(result.markdown.includes("line2\nline3"));
+  assert.ok(!result.markdown.includes("line1"));
+});
+
+test("moreContext reads to the end of the file when end_line is omitted", async () => {
+  const rootDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), "reptclip-morereadnoend-"),
+  );
+  const filePath = path.join(rootDir, "example.ts");
+  await fs.writeFile(filePath, "line1\nline2\nline3\n", "utf8");
+
+  const result = await moreContext(rootDir, "read-lines example.ts 2");
+  assert.ok(result.markdown.includes("line2\nline3"));
+  assert.ok(!result.markdown.includes("line1"));
 });
 
 test("moreContext throws when path is ignored by .gitignore", async () => {
@@ -225,6 +321,19 @@ test("moreContext throws when grep path does not exist", async () => {
   );
 });
 
+test("moreContext throws when read-lines start_line exceeds the file's line count", async () => {
+  const rootDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), "reptclip-morereadover-"),
+  );
+  const filePath = path.join(rootDir, "example.ts");
+  await fs.writeFile(filePath, "line1\nline2\n", "utf8");
+
+  await assert.rejects(
+    () => moreContext(rootDir, "read-lines example.ts 10"),
+    /Cannot run commands: example\.ts \(start_line 10 exceeds file's line count of 2\)/,
+  );
+});
+
 test("moreContext throws when grep pattern is invalid", async () => {
   const rootDir = await fs.mkdtemp(
     path.join(os.tmpdir(), "reptclip-morebadpattern-"),
@@ -257,6 +366,18 @@ test("moreContext reads oversized file and returns placeholder", async () => {
   await fs.writeFile(filePath, largeContent, "utf8");
 
   const result = await moreContext(rootDir, "cat large.ts");
+  assert.ok(result.markdown.includes("File skipped: exceeds 1 MB"));
+});
+
+test("moreContext returns a placeholder for read-lines on an oversized file", async () => {
+  const rootDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), "reptclip-morereadlarge-"),
+  );
+  const filePath = path.join(rootDir, "large.ts");
+  const largeContent = "a".repeat(1024 * 1024 + 100);
+  await fs.writeFile(filePath, largeContent, "utf8");
+
+  const result = await moreContext(rootDir, "read-lines large.ts 1 5");
   assert.ok(result.markdown.includes("File skipped: exceeds 1 MB"));
 });
 
