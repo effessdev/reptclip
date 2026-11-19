@@ -293,6 +293,7 @@ export class ReptclipViewProvider implements vscode.WebviewViewProvider {
                 ok: true,
                 fileCount: result.includedFiles.length,
                 searchCount: result.searchCount,
+                searchResultCount: result.searchResultCount,
               });
             } catch (err) {
               const message_ = err instanceof Error ? err.message : String(err);

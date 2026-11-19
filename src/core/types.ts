@@ -41,7 +41,13 @@ export type HostToWebviewMessage =
       canUndo: boolean;
       canRedo: boolean;
     }
-  | { type: "runResult"; ok: true; fileCount: number; searchCount?: number }
+  | {
+      type: "runResult";
+      ok: true;
+      fileCount: number;
+      searchCount?: number;
+      searchResultCount?: number;
+    }
   | { type: "runResult"; ok: false; error: string }
   | {
       type: "applyResult";

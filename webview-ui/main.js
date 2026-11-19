@@ -600,7 +600,7 @@
         setStatus(
           message.searchCount === undefined
             ? `Done: ${message.fileCount} file(s) included.`
-            : `Done: ${message.fileCount} file(s) included, ${message.searchCount} search(es) run.`,
+            : `Done: ${message.fileCount} file(s) included, ${message.searchCount} search(es) run, ${message.searchResultCount ?? 0} result(s) found.`,
         );
       } else {
         setStatus(`Error: ${message.error}`, true);

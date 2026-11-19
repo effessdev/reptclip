@@ -194,6 +194,7 @@ test("moreContext runs valid cat command and returns markdown", async () => {
   const result = await moreContext(rootDir, "cat example.ts");
   assert.equal(result.commandCount, 1);
   assert.equal(result.searchCount, 0);
+  assert.equal(result.searchResultCount, 0);
   assert.deepEqual(result.includedFiles, ["example.ts"]);
   assert.ok(result.markdown.startsWith("# Files\n\n"));
   assert.ok(result.markdown.includes("## example.ts"));
@@ -214,6 +215,7 @@ test("moreContext runs valid grep command and returns markdown", async () => {
   const result = await moreContext(rootDir, "grep TODO example.ts");
   assert.equal(result.commandCount, 1);
   assert.equal(result.searchCount, 1);
+  assert.equal(result.searchResultCount, 1);
   assert.deepEqual(result.includedFiles, []);
   assert.ok(result.markdown.startsWith("# Files\n\n"));
   assert.ok(result.markdown.includes("## grep TODO example.ts"));

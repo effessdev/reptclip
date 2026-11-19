@@ -52,6 +52,8 @@ export interface MoreContextResult extends GenerateResult {
   commandCount: number;
   /** Number of grep searches executed, for status reporting. */
   searchCount: number;
+  /** Total number of search results returned across all grep commands. */
+  searchResultCount: number;
 }
 
 const SHORT_BOOLEAN: Record<string, string | undefined> = {
@@ -515,7 +517,7 @@ async function runGrep(
   request: GrepRequest,
   absPaths: string[],
   guard: EmbeddingGuard,
-): Promise<string> {
+): Promise<{ output: string; resultCount: number }> {
   const grepts: GreptsModule = await import("grepts");
   const options = grepts.searchOptionsSchema.parse({
     ...request,
@@ -535,6 +537,7 @@ async function runGrep(
   }
   const results = grepts.search(options);
   const lines: string[] = [];
+  let resultCount = 0;
   for (const result of results) {
     const relPath = path
       .relative(rootDir, result.filePath)
@@ -555,9 +558,17 @@ async function runGrep(
     );
     if (formatted) {
       lines.push(formatted);
+      resultCount += options.count
+        ? result.matchCount
+        : options.filesWithMatches || options.filesWithoutMatch
+          ? 1
+          : result.matchCount;
     }
   }
-  return lines.length > 0 ? lines.join("\n") : "(no matches)";
+  return {
+    output: lines.length > 0 ? lines.join("\n") : "(no matches)",
+    resultCount,
+  };
 }
 
 /**
@@ -615,6 +626,7 @@ export async function moreContext(
   const sections: string[] = [];
   const includedFiles: string[] = [];
   let searchCount = 0;
+  let searchResultCount = 0;
   for (const command of validated) {
     if (command.kind === "cat") {
       const result = await readFileSafe(command.absPath).catch(() => undefined);
@@ -641,14 +653,15 @@ export async function moreContext(
       sections.push(renderSection(command.line, content));
       includedFiles.push(command.relPath);
     } else {
-      const output = await runGrep(
+      const result = await runGrep(
         rootDir,
         command.request,
         command.absPaths,
         guard,
       );
-      sections.push(renderSection(command.line, output));
+      sections.push(renderSection(command.line, result.output));
       searchCount++;
+      searchResultCount += result.resultCount;
     }
   }
   return {
@@ -657,5 +670,6 @@ export async function moreContext(
     includedFiles,
     commandCount: validated.length,
     searchCount,
+    searchResultCount,
   };
 }
