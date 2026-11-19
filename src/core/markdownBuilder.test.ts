@@ -24,7 +24,8 @@ test("buildMarkdown omits file sections when includeFiles is false", () => {
   });
 
   assert.ok(markdown.includes("# Project structure"));
-  assert.ok(!markdown.includes("# src/a.ts"));
+  assert.ok(!markdown.includes("# Files"));
+  assert.ok(!markdown.includes("## src/a.ts"));
 });
 
 test("buildMarkdown includes the enabled sections and omits the disabled ones", () => {
@@ -40,7 +41,8 @@ test("buildMarkdown includes the enabled sections and omits the disabled ones", 
 
   assert.ok(markdown.includes("# Project structure"));
   assert.ok(markdown.includes("# AI instructions"));
-  assert.ok(markdown.includes("# src/a.ts"));
+  assert.ok(markdown.includes("# Files"));
+  assert.ok(markdown.includes("## src/a.ts"));
   assert.ok(markdown.includes("# Prompt"));
 
   const trimmed = buildMarkdown({
@@ -55,7 +57,8 @@ test("buildMarkdown includes the enabled sections and omits the disabled ones", 
 
   assert.ok(!trimmed.includes("# Project structure"));
   assert.ok(!trimmed.includes("# AI instructions"));
-  assert.ok(!trimmed.includes("# src/a.ts"));
+  assert.ok(!trimmed.includes("# Files"));
+  assert.ok(!trimmed.includes("## src/a.ts"));
   assert.ok(!trimmed.includes("# Prompt"));
 });
 

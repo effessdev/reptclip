@@ -21,7 +21,7 @@ grep -n "TODO" src
 
 After generating the code block, ask the user to copy that code block and click the "More Context" button in the ReptClip panel to copy the file contents and search results to their clipboard, and paste it back to you.
 
-Each command comes back as its own section: `# <path>` with the file's contents for `cat`, and `# <the grep command>` with the matching lines (`path:line:content`) for `grep`.
+Each command comes back under a top-level `# Files` section: individual `## <path>` subsections contain `cat` file contents, and `## <the grep command>` subsections contain matching lines (`path:line:content`) for `grep`.
 
 Before generating any edits (below), make sure you have the current contents of every file you plan to edit. If you don't have a file's contents, or can't confirm they're current, request it via these commands first rather than guessing at the content.
 
@@ -89,7 +89,6 @@ config/legacy.json
 }
 =======
 >>>>>>> REPLACE
-```
 
 #### Explanation
 
@@ -108,3 +107,4 @@ config/legacy.json
 6. **Sequential Edits:** For multiple blocks on the same file, write each `SEARCH` to match the file as it will exist at the moment that block is applied. I.e., after all earlier blocks in your list have already been applied to that file. List them in the order you intend them to be applied sequentially.
 
 7. **No Marker Collisions:** Inside `SEARCH`, a trimmed line equal to `=======` ends the block early — it's read as the separator. Inside `REPLACE`, a trimmed line starting with `>>>>>>> REPLACE` ends the block early, and a line equal to `=======` triggers a suspicious-edit warning that can block the apply. A `<<<<<<< SEARCH` line is harmless in either block. If matched code requires one of these, split the edit so the line falls outside the block; if that's not possible, tell the user instead of continuing.
+```

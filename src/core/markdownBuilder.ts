@@ -29,8 +29,9 @@ import DIFF_FORMAT_SECTION from "./diff-format.md";
  * Produces the same overall shape as the original CLI's output:
  *   # Project structure   (optional, full non-ignored tree)
  *   ## AI instructions    (optional, Search/Replace instructions)
- *   # <path>               (one section per included file)
- *   # Prompt                (optional tail)
+ *   # Files               (optional, one section containing included files)
+ *     ## <path>           (one subsection per included file)
+ *   # Prompt              (optional tail)
  */
 export function buildMarkdown(input: BuildMarkdownInput): string {
   const parts: string[] = [];
@@ -53,10 +54,13 @@ export function buildMarkdown(input: BuildMarkdownInput): string {
   }
 
   if (input.includeFiles) {
-    for (const file of input.includedFiles) {
+    const fileSections = input.includedFiles.map((file) => {
       const content = input.fileContents[file] ?? "";
-      parts.push(`# ${file}\n\n\`\`\`\n${content}\n\`\`\``);
-    }
+      return `## ${file}\n\n\`\`\`\n${content}\n\`\`\``;
+    });
+    parts.push(
+      `# Files${fileSections.length > 0 ? `\n\n${fileSections.join("\n\n")}` : ""}`,
+    );
   }
 
   if (input.includePromptTail) {

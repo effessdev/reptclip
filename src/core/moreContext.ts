@@ -480,7 +480,7 @@ function renderSection(heading: string, body: string): string {
     0,
   );
   const fence = "`".repeat(Math.max(3, longestRun + 1));
-  return `# ${heading}\n\n${fence}\n${text}\n${fence}`;
+  return `## ${heading}\n\n${fence}\n${text}\n${fence}`;
 }
 
 /**
@@ -523,7 +523,7 @@ export async function moreContext(
     }
   }
   return {
-    markdown: sections.join("\n\n") + "\n",
+    markdown: `# Files\n\n` + sections.join("\n\n") + "\n",
     allFiles: [],
     includedFiles,
     commandCount: validated.length,

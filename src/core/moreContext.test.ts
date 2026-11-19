@@ -138,7 +138,8 @@ test("moreContext runs valid cat command and returns markdown", async () => {
   const result = await moreContext(rootDir, "cat example.ts");
   assert.equal(result.commandCount, 1);
   assert.deepEqual(result.includedFiles, ["example.ts"]);
-  assert.ok(result.markdown.includes("# example.ts"));
+  assert.ok(result.markdown.startsWith("# Files\n\n"));
+  assert.ok(result.markdown.includes("## example.ts"));
   assert.ok(result.markdown.includes("console.log('hello');"));
 });
 
@@ -155,7 +156,8 @@ test("moreContext runs valid grep command and returns markdown", async () => {
 
   const result = await moreContext(rootDir, "grep TODO example.ts");
   assert.equal(result.commandCount, 1);
-  assert.ok(result.markdown.includes("# grep TODO example.ts"));
+  assert.ok(result.markdown.startsWith("# Files\n\n"));
+  assert.ok(result.markdown.includes("## grep TODO example.ts"));
   assert.ok(result.markdown.includes("TODO: fix this"));
 });
 
@@ -276,7 +278,7 @@ test("moreContext grows fence length when file contains backticks", async () => 
 
   const result = await moreContext(rootDir, "cat ticks.ts");
   assert.ok(result.markdown.includes("````````"));
-  assert.ok(result.markdown.includes("# ticks.ts"));
+  assert.ok(result.markdown.includes("## ticks.ts"));
 });
 
 test("moreContext drops grep matches containing NUL bytes", async () => {

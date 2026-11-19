@@ -98,7 +98,7 @@ grep -n "TODO" src
 
 After generating the code block, ask the user to copy that code block and click the "More Context" button in the ReptClip panel to copy the file contents and search results to their clipboard, and paste it back to you.
 
-Each command comes back as its own section: `# <path>` with the file's contents for `cat`, and `# <the grep command>` with the matching lines (`path:line:content`) for `grep`.
+Each command comes back under a top-level `# Files` section: `## <path>` contains a `cat` file's contents, and `## <the grep command>` contains matching lines (`path:line:content`) for `grep`.
 
 Before generating any edits (below), make sure you have the current contents of every file you plan to edit. If you don't have a file's contents, or can't confirm they're current, request it via these commands first rather than guessing at the content.
 
@@ -132,9 +132,9 @@ class User:
 
 src/controllers/user_controller.py
 <<<<<<< SEARCH
-from src.models.user import User
+from src/models.user import User
 =======
-from src.models.user import User
+from src/models.user import User
 from src.utils.validator import validate_email
 >>>>>>> REPLACE
 <<<<<<< SEARCH
@@ -186,7 +186,9 @@ config/legacy.json
 
 7. **No Marker Collisions:** Inside `SEARCH`, a trimmed line equal to `=======` ends the block early — it's read as the separator. Inside `REPLACE`, a trimmed line starting with `>>>>>>> REPLACE` ends the block early, and a line equal to `=======` triggers a suspicious-edit warning that can block the apply. A `<<<<<<< SEARCH` line is harmless in either block. If matched code requires one of these, split the edit so the line falls outside the block; if that's not possible, tell the user instead of continuing.
 
-# AGENTS.md
+# Files
+
+## AGENTS.md
 
 ```
 Do not make mistakes.
@@ -284,13 +286,15 @@ grep -n "TODO" src
 produces this output:
 
 ````
-# main.py
+# Files
+
+## main.py
 
 ```
 Contents of main.py
 ```
 
-# grep -n "TODO" src
+## grep -n "TODO" src
 
 ```
 src/app.py:12:# TODO: handle errors
@@ -302,7 +306,7 @@ Here's what actually happens, in order:
 
 1. **Parsing is line-by-line and forgiving where it should be, strict where it must be.** Each line is trimmed and split into quote-aware tokens, and empty lines (including runs of consecutive newlines) are skipped. The first token must be `cat` or `grep` — anything else is an error.
 2. **Pre-flight validation, all-or-nothing.** Before anything runs, every command is checked. `cat` paths clear the embedding guard and are `fs.stat`-ed against the workspace root: not found, a directory rather than a file, ignored by `.gitignore`, inside `.git`, absolute, or resolving outside the project root all fail the check. `grep` commands are parsed and validated up front too: invalid patterns, paths that fail the same checks, and unsupported flags all fail the check. Nothing is copied, nothing is written, no half-baked context reaches your clipboard; instead the panel names each offender and why. You fix the block and click again.
-3. **Only then does it build.** `cat` files are read through the shared pipeline (1 MB limit, binary detection, descriptive placeholders) and formatted by the same Markdown builder used by Generate. `grep` searches run in-process via grepts with `.gitignore` respect forced on, and matched files are re-checked through the embedding guard before their lines are embedded. Each command becomes one section — `# <path>` for `cat`, `# <the grep command as typed>` for `grep` — with the file contents or search output in a code fence. The Project structure / AI instructions / Prompt section checkboxes are deliberately not applied, since those were already sent when you first generated the context.
+3. **Only then does it build.** `cat` files are read through the shared pipeline (1 MB limit, binary detection, descriptive placeholders) and formatted by the same Markdown builder used by Generate. `grep` searches run in-process via grepts with `.gitignore` respect forced on, and matched files are re-checked through the embedding guard before their lines are embedded. The results are placed under `# Files`, with one `## <path>` or `## <the grep command as typed>` subsection per command, and each subsection contains a code fence. The Project structure / AI instructions / Prompt section checkboxes are deliberately not applied, since those were already sent when you first generated the context.
 
 Supported `grep` flags: `-i` (ignore case), `-n` (line numbers, on by default), `-N` / `--no-line-number`, `-c` (count per file), `-l` (files with matches), `--files-without-match`, `-w` (whole words), `-F` (literal string), `-g <glob>` (filter files, e.g. `-g "*.ts"`), `-m <n>` (max matches per file), `-v` / `--invert-match`, `-U` (multiline), `--hidden`, `--max-depth <n>`, and `-e <pattern>`. Combined short flags (`-rn`) and `--` work too, and `-r` / `-R` / `-E` / `--no-color` are accepted as no-ops. Context flags (`-C` / `-A` / `-B`) are not supported by grepts yet and are rejected, as are `--no-ignore` (ignored files are never searched) and `-q` / `--quiet` (they would produce no output).
 
@@ -322,5 +326,3 @@ Open VS Code's Settings (`Ctrl+,` / `Cmd+,`) and search for **"ReptClip"** to co
 | `reptclip.defaultOutputFile`        | `""`    | Default value for the **Output file** field.                             |
 | `reptclip.allowProtectedFileWrites` | `false` | Allow diffs that write `.git/**` or `.env*` after a confirmation dialog. |
 | `reptclip.showLineCounts`           | `true`  | Show each file's raw line count in the **Project structure** section.    |
-
-These can be set at the User level (applies to all projects without saved state) or the Workspace level (applies only within that workspace), using VS Code's normal settings scoping.
