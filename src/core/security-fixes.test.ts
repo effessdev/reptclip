@@ -92,7 +92,11 @@ const fakeVscode = {
       };
     },
   },
-  window: { async showTextDocument() { return undefined; } },
+  window: {
+    async showTextDocument() {
+      return undefined;
+    },
+  },
 };
 
 (Module as any)._load = function (
@@ -137,14 +141,15 @@ async function exists(absPath: string): Promise<boolean> {
     .catch(() => false);
 }
 
-function block(
-  file: string,
-  search: string,
-  replace: string,
-): string {
-  return [file, "<<<<<<< SEARCH", search, "=======", replace, ">>>>>>> REPLACE"].join(
-    "\n",
-  );
+function block(file: string, search: string, replace: string): string {
+  return [
+    file,
+    "<<<<<<< SEARCH",
+    search,
+    "=======",
+    replace,
+    ">>>>>>> REPLACE",
+  ].join("\n");
 }
 
 // ---------------------------------------------------------------------------
@@ -195,7 +200,10 @@ test("E1 refuses to follow a file link that points outside the workspace", async
     () => applyDiffs(root, block("secret.txt", "OUTSIDE-SECRET", "PWNED")),
     /escapes the workspace/,
   );
-  assert.equal(await fs.readFile(path.join(outside, "secret.txt"), "utf8"), "OUTSIDE-SECRET\n");
+  assert.equal(
+    await fs.readFile(path.join(outside, "secret.txt"), "utf8"),
+    "OUTSIDE-SECRET\n",
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -261,10 +269,7 @@ test("E2 aborts without writing when the confirmation is declined", async () => 
 test("E3 undo asks before overwriting a file edited after the apply", async () => {
   const root = await makeRoot("reptclip-e3-");
   const file = await writeFile(root, "a.txt", "v1\n");
-  const result = await applyDiffs(
-    root,
-    block("a.txt", "v1", "v2"),
-  );
+  const result = await applyDiffs(root, block("a.txt", "v1", "v2"));
   await fs.writeFile(file, "USER-EDIT-AFTER-APPLY\n", "utf8");
 
   await assert.rejects(
@@ -350,7 +355,10 @@ test("E5 names the suspicious path and the format rule when the path is prose", 
       /Now the second change:/.test(error.message) &&
       /immediately before/.test(error.message),
   );
-  assert.equal(await fs.readFile(path.join(root, "a.txt"), "utf8"), "one\ntwo\n");
+  assert.equal(
+    await fs.readFile(path.join(root, "a.txt"), "utf8"),
+    "one\ntwo\n",
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -401,7 +409,10 @@ test("E7 honours a nested .gitignore negation that overrides a root pattern", as
 
   const files = await collectNonIgnoredFiles(root);
 
-  assert.ok(files.includes("nested/keep.log"), "git re-includes nested/keep.log");
+  assert.ok(
+    files.includes("nested/keep.log"),
+    "git re-includes nested/keep.log",
+  );
   assert.ok(!files.includes("nested/other.log"));
   assert.equal((await createEmbeddingGuard(root)("nested/keep.log")).ok, true);
 });
@@ -632,7 +643,10 @@ test("P5 does not crash when the re-included base is the level itself", async ()
   const files = await collectNonIgnoredFiles(root);
   assert.equal(files.includes("nested/debug.log"), false);
   assert.ok(files.includes("nested/keep.txt"));
-  assert.equal((await createEmbeddingGuard(root)("nested/debug.log")).ok, false);
+  assert.equal(
+    (await createEmbeddingGuard(root)("nested/debug.log")).ok,
+    false,
+  );
 });
 
 test("P6 keeps a directory exclusion declared below a re-included base", async () => {
@@ -658,7 +672,10 @@ test("P7 keeps nested files under a re-included base without a separate rule", a
 
   const files = await collectNonIgnoredFiles(root);
   assert.ok(files.includes("nested/build/sub/file.txt"));
-  assert.equal((await createEmbeddingGuard(root)("nested/build/sub/file.txt")).ok, true);
+  assert.equal(
+    (await createEmbeddingGuard(root)("nested/build/sub/file.txt")).ok,
+    true,
+  );
 });
 
 test("P8 keeps a deeper match of an unanchored rule that also matches the base", async () => {
@@ -692,11 +709,7 @@ test("P9 does not let a synthetic prefix create a directory match", async () => 
 
 test("P10 keeps a separately excluded directory inside a re-included base", async () => {
   const root = await makeRoot("reptclip-p10-");
-  await writeFile(
-    root,
-    ".gitignore",
-    "nested/build/\nnested/build/private/\n",
-  );
+  await writeFile(root, ".gitignore", "nested/build/\nnested/build/private/\n");
   await writeFile(root, "nested/.gitignore", "!build/\n");
   await writeFile(root, "nested/build/private/.gitignore", "!secret.txt\n");
   await writeFile(root, "nested/build/ok.txt", "ok\n");
@@ -777,7 +790,10 @@ test("R4 the guard returns the canonical path for a normal file", async () => {
   const verdict = await createEmbeddingGuard(root)("src/app.ts");
   assert.equal(verdict.ok, true);
   assert.ok(verdict.absPath);
-  assert.equal(await fs.readFile(verdict.absPath!, "utf8"), "export const a = 1;\n");
+  assert.equal(
+    await fs.readFile(verdict.absPath!, "utf8"),
+    "export const a = 1;\n",
+  );
 });
 
 test("R5 the guard judges the canonical target, not just the alias", async (t) => {
@@ -827,7 +843,10 @@ test("E10 exact, fuzzy, create, delete and a three-step undo/redo round trip", a
   const root = await makeRoot("reptclip-e10-");
   const file = await writeFile(root, "src/counter.js", "let value = 1;\n");
 
-  const first = await applyDiffs(root, block("src/counter.js", "let value = 1;", "let value = 2;"));
+  const first = await applyDiffs(
+    root,
+    block("src/counter.js", "let value = 1;", "let value = 2;"),
+  );
   assert.equal(await fs.readFile(file, "utf8"), "let value = 2;\n");
 
   const fuzzyRoot = await makeRoot("reptclip-e10f-");
@@ -857,7 +876,10 @@ test("E10 exact, fuzzy, create, delete and a three-step undo/redo round trip", a
 
   const created = await applyDiffs(root, block("notes.txt", "", "hello"));
   assert.equal(created.created, 1);
-  assert.equal(await fs.readFile(path.join(root, "notes.txt"), "utf8"), "hello");
+  assert.equal(
+    await fs.readFile(path.join(root, "notes.txt"), "utf8"),
+    "hello",
+  );
 
   const deleted = await applyDiffs(root, block("notes.txt", "hello", ""));
   assert.equal(deleted.deleted, 1);
@@ -869,4 +891,33 @@ test("E10 exact, fuzzy, create, delete and a three-step undo/redo round trip", a
   assert.equal(await fs.readFile(file, "utf8"), "let value = 2;\n");
   await applySnapshot(root, first.checkpoint.files, "undo");
   assert.equal(await fs.readFile(file, "utf8"), "let value = 1;\n");
+});
+
+test("standalone move and delete operations apply and round-trip", async () => {
+  const root = await makeRoot("reptclip-move-delete-");
+  const source = await writeFile(root, "src/old.txt", "keep me\n");
+  await writeFile(root, "src/remove.txt", "remove me\n");
+
+  const moved = await applyDiffs(root, "src/old.txt -> src/new.txt");
+  assert.equal(await exists(source), false);
+  assert.equal(
+    await fs.readFile(path.join(root, "src/new.txt"), "utf8"),
+    "keep me\n",
+  );
+  assert.equal(moved.created, 1);
+  assert.equal(moved.deleted, 1);
+
+  await applySnapshot(root, moved.checkpoint.files, "undo");
+  assert.equal(await exists(source), true);
+  assert.equal(await exists(path.join(root, "src/new.txt")), false);
+
+  const deleted = await applyDiffs(root, "src/remove.txt delete");
+  assert.equal(await exists(path.join(root, "src/remove.txt")), false);
+  assert.equal(deleted.deleted, 1);
+
+  await applySnapshot(root, deleted.checkpoint.files, "undo");
+  assert.equal(
+    await fs.readFile(path.join(root, "src/remove.txt"), "utf8"),
+    "remove me\n",
+  );
 });

@@ -76,6 +76,8 @@ def legacy_create_user(name):
 
 >>>>>>> REPLACE
 
+src/main.py -> src/cli.py
+
 src/utils/validator.py
 <<<<<<< SEARCH
 =======
@@ -84,13 +86,8 @@ def validate_email(email):
         raise ValueError("Invalid email address")
 >>>>>>> REPLACE
 
-config/legacy.json
-<<<<<<< SEARCH
-{
-    "deprecated": true
-}
-=======
->>>>>>> REPLACE
+config/legacy.json delete
+```
 
 #### Explanation
 
@@ -100,13 +97,14 @@ config/legacy.json
 
 3. **Uniqueness:** Provide sufficient surrounding unchanged lines in the `SEARCH` block to ensure it matches exactly **one** location in the target file.
 
-4. **New Files & Deletions:**
+4. **New Files, Moves & Deletions:**
    - To create a new file, use an empty `SEARCH` block.
    - To delete a file, use an empty `REPLACE` block, with `SEARCH` containing the file's entire current contents.
+   - To move or rename a file without modifying it, use `old/path.txt -> new/path.txt` on its own line.
+   - To delete a whole file directly, use `old/path.txt delete` on its own line.
 
 5. **No Placeholders:** Do not use ellipses (`...`), comments like `# rest of code unchanged`, or omitted lines inside `SEARCH` or `REPLACE` blocks.
 
 6. **Sequential Edits:** For multiple blocks on the same file, write each `SEARCH` to match the file as it will exist at the moment that block is applied. I.e., after all earlier blocks in your list have already been applied to that file. List them in the order you intend them to be applied sequentially.
 
 7. **No Marker Collisions:** Inside `SEARCH`, a trimmed line equal to `=======` ends the block early — it's read as the separator. Inside `REPLACE`, a trimmed line starting with `>>>>>>> REPLACE` ends the block early, and a line equal to `=======` triggers a suspicious-edit warning that can block the apply. A `<<<<<<< SEARCH` line is harmless in either block. If matched code requires one of these, split the edit so the line falls outside the block; if that's not possible, tell the user instead of continuing.
-```

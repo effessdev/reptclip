@@ -147,6 +147,27 @@ test("parseDiffBlocks parses a valid fenced Search/Replace block", () => {
   ]);
 });
 
+test("parseDiffBlocks parses move and delete operations", () => {
+  assert.deepEqual(
+    parseDiffBlocks("src/old.ts -> src/new.ts\nsrc/remove.ts delete"),
+    [
+      {
+        file: "src/old.ts",
+        destination: "src/new.ts",
+        search: "",
+        replace: "",
+        kind: "move",
+      },
+      {
+        file: "src/remove.ts",
+        search: "",
+        replace: "",
+        kind: "delete",
+      },
+    ],
+  );
+});
+
 test("parseDiffBlocks throws a clear error for truncated diff text", () => {
   const text = [
     "src/app.ts",

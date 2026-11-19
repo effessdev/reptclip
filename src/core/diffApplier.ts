@@ -22,6 +22,9 @@ interface DiffBlock {
   file: string;
   search: string;
   replace: string;
+  /** A standalone file operation instead of a SEARCH/REPLACE block. */
+  kind?: "move" | "delete";
+  destination?: string;
 }
 
 export interface ApplySummary {
@@ -140,10 +143,33 @@ export function parseDiffBlocks(text: string): DiffBlock[] {
         searchLines = [];
         continue;
       }
-      // Skip surrounding ``` fences; anything else non-empty is a path candidate.
       if (trimmed.startsWith("```") || trimmed === "") {
         continue;
       }
+
+      const arrow = trimmed.match(/^(.+?)\s+->\s+(.+)$/);
+      if (arrow) {
+        blocks.push({
+          file: arrow[1].trim(),
+          destination: arrow[2].trim(),
+          search: "",
+          replace: "",
+          kind: "move",
+        });
+        continue;
+      }
+
+      const deleteMatch = trimmed.match(/^(.+?)\s+delete$/i);
+      if (deleteMatch) {
+        blocks.push({
+          file: deleteMatch[1].trim(),
+          search: "",
+          replace: "",
+          kind: "delete",
+        });
+        continue;
+      }
+
       candidatePath = trimmed;
       continue;
     }
@@ -195,10 +221,15 @@ export function parseDiffBlocks(text: string): DiffBlock[] {
 export function fingerprintDiff(text: string): string {
   const blocks = parseDiffBlocks(text);
   if (blocks.length === 0) {
-    throw new Error("Clipboard does not contain any SEARCH/REPLACE blocks.");
+    throw new Error(
+      "Clipboard does not contain any supported diff operations.",
+    );
   }
   const canonical = blocks
-    .map((b) => `${b.file}\u0000${b.search}\u0000${b.replace}`)
+    .map(
+      (b) =>
+        `${b.kind ?? "replace"}\u0000${b.file}\u0000${b.destination ?? ""}\u0000${b.search}\u0000${b.replace}`,
+    )
     .join("\u0001");
   return crypto.createHash("sha256").update(canonical).digest("hex");
 }
@@ -545,7 +576,9 @@ export async function applyDiffs(
 ): Promise<ApplyResult> {
   const blocks = parseDiffBlocks(text);
   if (blocks.length === 0) {
-    throw new Error("Clipboard does not contain any SEARCH/REPLACE blocks.");
+    throw new Error(
+      "Clipboard does not contain any supported diff operations.",
+    );
   }
 
   // A `=======` line inside the REPLACE half means the parser took the second
@@ -556,10 +589,12 @@ export async function applyDiffs(
   const suspiciousReplace = [
     ...new Set(
       blocks
-        .filter((block) =>
-          block.replace
-            .split(/\r?\n/)
-            .some((line) => line.trim() === SEPARATOR),
+        .filter(
+          (block) =>
+            block.kind === undefined &&
+            block.replace
+              .split(/\r?\n/)
+              .some((line) => line.trim() === SEPARATOR),
         )
         .map((block) => block.file),
     ),
@@ -580,18 +615,33 @@ export async function applyDiffs(
     }
   }
 
-  // Resolve every target before simulating: the protected-path answer must
-  // win over "file already exists" style errors, and the real path is needed
-  // for both the guard and the plan.
   const resolvedTargets: { absPath: string; realRelPath: string }[] = [];
+  const resolvedDestinations: (
+    | { absPath: string; realRelPath: string }
+    | undefined
+  )[] = [];
   const protectedPaths = new Set<string>();
   for (const block of blocks) {
     const target = await resolveFile(rootDir, block.file);
     resolvedTargets.push(target);
-    // Check both the path the user sees and the path the write really lands on:
-    // a junction can point at `.git`, and an NTFS stream alias can hide `.env`.
     if (isProtectedPath(block.file) || isProtectedPath(target.realRelPath)) {
       protectedPaths.add(block.file);
+    }
+
+    if (block.kind === "move") {
+      if (!block.destination || block.destination.trim() === "") {
+        throw new Error(`Move from ${block.file} has no destination path.`);
+      }
+      const destination = await resolveFile(rootDir, block.destination);
+      resolvedDestinations.push(destination);
+      if (
+        isProtectedPath(block.destination!) ||
+        isProtectedPath(destination.realRelPath)
+      ) {
+        protectedPaths.add(block.destination!);
+      }
+    } else {
+      resolvedDestinations.push(undefined);
     }
   }
   if (protectedPaths.size > 0) {
@@ -638,6 +688,60 @@ export async function applyDiffs(
     }
     if (plan.deleted) {
       throw new Error(`Diff edits ${block.file} after it was deleted.`);
+    }
+
+    if (block.kind === "delete") {
+      if (!plan.existed) {
+        throw new Error(
+          `Cannot delete ${block.file}: the file does not exist.`,
+        );
+      }
+      plan.deleted = true;
+      continue;
+    }
+
+    if (block.kind === "move") {
+      if (!plan.existed) {
+        throw new Error(`Cannot move ${block.file}: the file does not exist.`);
+      }
+      const destination = resolvedDestinations[blockIndex]!;
+      if (destination.absPath.toLowerCase() === absPath.toLowerCase()) {
+        throw new Error(
+          `Cannot move ${block.file}: source and destination are the same path.`,
+        );
+      }
+
+      let destinationPlan = plans.get(destination.absPath);
+      if (!destinationPlan) {
+        const destinationContent =
+          (await findBufferOverride(
+            options.bufferOverrides,
+            destination.absPath,
+          )) ?? (await readFileIfExists(destination.absPath));
+        destinationPlan = {
+          absPath: destination.absPath,
+          relPath: path
+            .relative(path.resolve(rootDir), destination.absPath)
+            .split(path.sep)
+            .join("/"),
+          existed: destinationContent !== undefined,
+          original: destinationContent,
+          content: destinationContent ?? "",
+          deleted: false,
+        };
+        plans.set(destination.absPath, destinationPlan);
+      }
+      if (destinationPlan.existed) {
+        throw new Error(
+          `Cannot move ${block.file} to ${block.destination}: destination already exists.`,
+        );
+      }
+      destinationPlan.existed = false;
+      destinationPlan.original = undefined;
+      destinationPlan.content = plan.content;
+      destinationPlan.deleted = false;
+      plan.deleted = true;
+      continue;
     }
 
     if (block.search === "") {

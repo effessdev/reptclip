@@ -186,7 +186,7 @@ function parseReadLinesArgs(args: string[]): {
   const [relPath, startLineRaw, endLineRaw] = args;
   const startLine = parsePositiveInt(startLineRaw, "start_line");
   if (endLineRaw === undefined) {
-    return { relPath, startLine };
+    return { relPath, startLine, endLine: undefined };
   }
   const endLine = parsePositiveInt(endLineRaw, "end_line");
   if (endLine < startLine) {
