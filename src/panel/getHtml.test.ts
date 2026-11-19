@@ -10,3 +10,14 @@ test("output file field uses the same stacked-label layout as the other form fie
   assert.match(source, /<input\s+type="text"\s+id="output"/);
   assert.doesNotMatch(source, /<label[^>]*class="output-file"/);
 });
+
+test("provider reports status in the webview instead of VS Code notifications", () => {
+  const provider = readFileSync(
+    resolve(__dirname, "ReptclipViewProvider.ts"),
+    "utf8",
+  );
+
+  assert.doesNotMatch(provider, /vscode\.window\.showErrorMessage/);
+  assert.doesNotMatch(provider, /vscode\.window\.showInformationMessage/);
+  assert.doesNotMatch(provider, /vscode\.window\.setStatusBarMessage/);
+});

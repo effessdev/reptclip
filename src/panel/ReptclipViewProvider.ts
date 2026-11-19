@@ -210,9 +210,11 @@ export class ReptclipViewProvider implements vscode.WebviewViewProvider {
 
           case "run": {
             if (!rootDir) {
-              vscode.window.showWarningMessage(
-                "ReptClip: open a folder first.",
-              );
+              post({
+                type: "runResult",
+                ok: false,
+                error: "Open a folder first.",
+              });
               return;
             }
 
@@ -244,13 +246,8 @@ export class ReptclipViewProvider implements vscode.WebviewViewProvider {
                 ok: true,
                 fileCount: result.includedFiles.length,
               });
-              vscode.window.setStatusBarMessage(
-                `ReptClip: included ${result.includedFiles.length} file(s)`,
-                3000,
-              );
             } catch (err) {
               const message_ = err instanceof Error ? err.message : String(err);
-              vscode.window.showErrorMessage(`ReptClip failed: ${message_}`);
               post({ type: "runResult", ok: false, error: message_ });
             }
             return;
@@ -258,9 +255,11 @@ export class ReptclipViewProvider implements vscode.WebviewViewProvider {
 
           case "moreContext": {
             if (!rootDir) {
-              vscode.window.showWarningMessage(
-                "ReptClip: open a folder first.",
-              );
+              post({
+                type: "runResult",
+                ok: false,
+                error: "Open a folder first.",
+              });
               return;
             }
 
@@ -292,13 +291,8 @@ export class ReptclipViewProvider implements vscode.WebviewViewProvider {
                 ok: true,
                 fileCount: result.includedFiles.length,
               });
-              vscode.window.setStatusBarMessage(
-                `ReptClip: more context (${result.commandCount} command(s), ${result.includedFiles.length} file(s))`,
-                3000,
-              );
             } catch (err) {
               const message_ = err instanceof Error ? err.message : String(err);
-              vscode.window.showErrorMessage(`ReptClip failed: ${message_}`);
               post({ type: "runResult", ok: false, error: message_ });
             }
             return;
@@ -306,9 +300,11 @@ export class ReptclipViewProvider implements vscode.WebviewViewProvider {
 
           case "applyDiffs": {
             if (!rootDir) {
-              vscode.window.showWarningMessage(
-                "ReptClip: open a folder first.",
-              );
+              post({
+                type: "applyResult",
+                ok: false,
+                error: "Open a folder first.",
+              });
               return;
             }
 
@@ -344,10 +340,6 @@ export class ReptclipViewProvider implements vscode.WebviewViewProvider {
                     fuzzy: 0,
                     alreadyApplied: true,
                   });
-                  vscode.window.setStatusBarMessage(
-                    "ReptClip: this diff was already applied. Skipping.",
-                    4000,
-                  );
                   return;
                 }
               }
@@ -396,10 +388,6 @@ export class ReptclipViewProvider implements vscode.WebviewViewProvider {
                 fuzzy: result.fuzzy,
               });
               this.sendUndoRedoState(rootDir, post);
-              vscode.window.setStatusBarMessage(
-                `Applied: ${result.modified} modified, ${result.created} created, ${result.deleted} deleted${result.fuzzy ? ` (${result.fuzzy} fuzzy)` : ""}`,
-                4000,
-              );
             } catch (err) {
               const message_ = err instanceof Error ? err.message : String(err);
               post({ type: "applyResult", ok: false, error: message_ });
@@ -409,9 +397,11 @@ export class ReptclipViewProvider implements vscode.WebviewViewProvider {
 
           case "undo": {
             if (!rootDir) {
-              vscode.window.showWarningMessage(
-                "ReptClip: open a folder first.",
-              );
+              post({
+                type: "undoResult",
+                ok: false,
+                error: "Open a folder first.",
+              });
               return;
             }
 
@@ -448,10 +438,6 @@ export class ReptclipViewProvider implements vscode.WebviewViewProvider {
                 deleted: summary.deleted,
               });
               this.sendUndoRedoState(rootDir, post);
-              vscode.window.setStatusBarMessage(
-                `ReptClip: undo — ${summary.modified} modified, ${summary.created} created, ${summary.deleted} deleted`,
-                4000,
-              );
             } catch (err) {
               stack?.push(checkpoint); // the undo didn't take, keep it available
               const message_ = err instanceof Error ? err.message : String(err);
@@ -462,9 +448,11 @@ export class ReptclipViewProvider implements vscode.WebviewViewProvider {
 
           case "redo": {
             if (!rootDir) {
-              vscode.window.showWarningMessage(
-                "ReptClip: open a folder first.",
-              );
+              post({
+                type: "redoResult",
+                ok: false,
+                error: "Open a folder first.",
+              });
               return;
             }
 
@@ -501,10 +489,6 @@ export class ReptclipViewProvider implements vscode.WebviewViewProvider {
                 deleted: summary.deleted,
               });
               this.sendUndoRedoState(rootDir, post);
-              vscode.window.setStatusBarMessage(
-                `ReptClip: redo — ${summary.modified} modified, ${summary.created} created, ${summary.deleted} deleted`,
-                4000,
-              );
             } catch (err) {
               stack?.push(checkpoint); // the redo didn't take, keep it available
               const message_ = err instanceof Error ? err.message : String(err);
