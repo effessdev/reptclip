@@ -881,9 +881,9 @@ test("E10 exact, fuzzy, create, delete and a three-step undo/redo round trip", a
     "hello",
   );
 
-  const deleted = await applyDiffs(root, block("notes.txt", "hello", ""));
-  assert.equal(deleted.deleted, 1);
-  assert.equal(await exists(path.join(root, "notes.txt")), false);
+  const emptied = await applyDiffs(root, block("notes.txt", "hello", ""));
+  assert.equal(emptied.deleted, 0);
+  assert.equal(await fs.readFile(path.join(root, "notes.txt"), "utf8"), "");
 
   await applySnapshot(root, first.checkpoint.files, "undo");
   assert.equal(await fs.readFile(file, "utf8"), "let value = 1;\n");

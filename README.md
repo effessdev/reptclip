@@ -180,9 +180,9 @@ config/legacy.json
 
 4. **New Files, Moves & Deletions:**
    - To create a new file, use an empty `SEARCH` block.
-   - To delete a file, use an empty `REPLACE` block, with `SEARCH` containing the file's entire current contents.
+   - An empty `REPLACE` block removes the matched text but keeps the file, including if the file becomes empty.
    - To move or rename a file without modifying it, use `old/path.txt -> new/path.txt` on its own line.
-   - To delete a whole file directly, use `old/path.txt delete` on its own line.
+   - To delete a whole file, use `old/path.txt delete` on its own line.
 
 5. **No Placeholders:** Do not use ellipses (`...`), comments like `# rest of code unchanged`, or omitted lines inside `SEARCH` or `REPLACE` blocks.
 

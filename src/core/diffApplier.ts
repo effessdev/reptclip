@@ -14,8 +14,8 @@ import * as crypto from "crypto";
  *   replacement code
  *   >>>>>>> REPLACE
  *
- * An empty SEARCH creates a new file; an empty REPLACE deletes the matched
- * code (and the whole file when the result leaves it empty).
+ * An empty SEARCH creates a new file. An empty REPLACE removes the matched
+ * text and leaves the file present, including when it becomes empty.
  */
 
 interface DiffBlock {
@@ -775,11 +775,6 @@ export async function applyDiffs(
       plan.content.slice(0, index) +
       replace +
       plan.content.slice(index + text.length);
-
-    // Empty REPLACE that wipes the whole file deletes it (format rule 4).
-    if (block.replace === "" && plan.existed && plan.content.trim() === "") {
-      plan.deleted = true;
-    }
   }
 
   const snapshot: FileSnapshot[] = Array.from(plans.values()).map((plan) => ({
