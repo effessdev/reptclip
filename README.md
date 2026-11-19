@@ -5,7 +5,7 @@
 
 Paste your project as clean Markdown context into any free Chatbot, and apply the generated diffs in one click!
 
-<img width="1160" alt="Latest UI" src="https://github.com/user-attachments/assets/86319332-8c7c-4355-b1a5-340a7002216f" />
+<img width="878" alt="ReptClip Panel UI" src="https://github.com/user-attachments/assets/917f77bd-0e2b-4191-8404-a1b72ae4fed2" />
 
 **Note:** The animations below show an older version of ReptClip, while the screenshot above shows the latest UI.
 
