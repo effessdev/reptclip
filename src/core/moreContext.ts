@@ -48,8 +48,10 @@ export interface GrepRequest {
 }
 
 export interface MoreContextResult extends GenerateResult {
-  /** Number of commands executed (cat + grep), for status reporting. */
+  /** Number of commands executed (cat + grep + read-lines), for status reporting. */
   commandCount: number;
+  /** Number of grep searches executed, for status reporting. */
+  searchCount: number;
 }
 
 const SHORT_BOOLEAN: Record<string, string | undefined> = {
@@ -612,6 +614,7 @@ export async function moreContext(
   const guard = createEmbeddingGuard(rootDir);
   const sections: string[] = [];
   const includedFiles: string[] = [];
+  let searchCount = 0;
   for (const command of validated) {
     if (command.kind === "cat") {
       const result = await readFileSafe(command.absPath).catch(() => undefined);
@@ -645,6 +648,7 @@ export async function moreContext(
         guard,
       );
       sections.push(renderSection(command.line, output));
+      searchCount++;
     }
   }
   return {
@@ -652,5 +656,6 @@ export async function moreContext(
     allFiles: [],
     includedFiles,
     commandCount: validated.length,
+    searchCount,
   };
 }

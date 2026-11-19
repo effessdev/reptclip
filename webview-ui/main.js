@@ -597,7 +597,11 @@
 
     if (message.type === "runResult") {
       if (message.ok) {
-        setStatus(`Done: ${message.fileCount} file(s) included.`);
+        setStatus(
+          message.searchCount === undefined
+            ? `Done: ${message.fileCount} file(s) included.`
+            : `Done: ${message.fileCount} file(s) included, ${message.searchCount} search(es) run.`,
+        );
       } else {
         setStatus(`Error: ${message.error}`, true);
       }
