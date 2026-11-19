@@ -1,4 +1,6 @@
 import * as vscode from "vscode";
+import * as path from "path";
+import * as fs from "fs/promises";
 import { getHtml } from "./getHtml";
 import {
   loadProjectState,
@@ -417,6 +419,37 @@ export class ReptclipViewProvider implements vscode.WebviewViewProvider {
             }
 
             try {
+              // Check for disk changes before proceeding
+              const diskChangedFiles: string[] = [];
+              for (const file of checkpoint.files) {
+                const absPath = path.resolve(rootDir, file.relPath);
+                // For undo, we expect to find the "after" state on disk
+                const hasChanged = await this.hasFileChangedOnDisk(
+                  absPath,
+                  file.after,
+                );
+                if (hasChanged) {
+                  diskChangedFiles.push(file.relPath);
+                }
+              }
+
+              if (diskChangedFiles.length > 0) {
+                const choice = await vscode.window.showWarningMessage(
+                  `${diskChangedFiles.join(", ")} changed on disk since this diff was applied. Undo will overwrite those changes. Continue?`,
+                  { modal: true },
+                  "Continue",
+                );
+                if (choice !== "Continue") {
+                  stack?.push(checkpoint); // put it back
+                  post({
+                    type: "undoResult",
+                    ok: false,
+                    error: "Undo cancelled: files changed on disk.",
+                  });
+                  return;
+                }
+              }
+
               const captured = this.captureBuffers();
               const summary = await applySnapshot(
                 rootDir,
@@ -468,6 +501,37 @@ export class ReptclipViewProvider implements vscode.WebviewViewProvider {
             }
 
             try {
+              // Check for disk changes before proceeding
+              const diskChangedFiles: string[] = [];
+              for (const file of checkpoint.files) {
+                const absPath = path.resolve(rootDir, file.relPath);
+                // For redo, we expect to find the "before" state on disk
+                const hasChanged = await this.hasFileChangedOnDisk(
+                  absPath,
+                  file.before,
+                );
+                if (hasChanged) {
+                  diskChangedFiles.push(file.relPath);
+                }
+              }
+
+              if (diskChangedFiles.length > 0) {
+                const choice = await vscode.window.showWarningMessage(
+                  `${diskChangedFiles.join(", ")} changed on disk since this diff was applied. Redo will overwrite those changes. Continue?`,
+                  { modal: true },
+                  "Continue",
+                );
+                if (choice !== "Continue") {
+                  stack?.push(checkpoint); // put it back
+                  post({
+                    type: "redoResult",
+                    ok: false,
+                    error: "Redo cancelled: files changed on disk.",
+                  });
+                  return;
+                }
+              }
+
               const captured = this.captureBuffers();
               const summary = await applySnapshot(
                 rootDir,
@@ -547,6 +611,40 @@ export class ReptclipViewProvider implements vscode.WebviewViewProvider {
       "Continue",
     );
     return choice === "Continue";
+  }
+
+  /**
+   * Checks if a file has changed on disk compared to the expected content.
+   * Returns true if the file exists on disk with different content than expected.
+   */
+  private async hasFileChangedOnDisk(
+    absPath: string,
+    expectedContent: string | undefined,
+  ): Promise<boolean> {
+    try {
+      const currentContent = await fs.readFile(absPath, "utf8");
+      const currentExists = true;
+      const expectedExists = expectedContent !== undefined;
+
+      // File existence mismatch means it changed on disk
+      if (currentExists !== expectedExists) {
+        return true;
+      }
+
+      // Both exist but content differs
+      if (
+        currentExists &&
+        expectedExists &&
+        currentContent !== expectedContent
+      ) {
+        return true;
+      }
+
+      return false;
+    } catch {
+      // File doesn't exist on disk
+      return expectedContent !== undefined;
+    }
   }
 
   /** Pushes a checkpoint onto a stack, dropping the oldest once past the cap. */

@@ -89,6 +89,32 @@ export interface SnapshotOptions {
   confirmConflict?: (paths: string[]) => Promise<boolean>;
 }
 
+/**
+ * Checks whether a file has been modified on disk since the checkpoint was
+ * recorded. Returns true if the file exists on disk with different content
+ * than what's expected (the "after" state for undo, or "before" state for redo).
+ */
+async function hasDiskChanges(
+  absPath: string,
+  expectedContent: string | undefined,
+): Promise<boolean> {
+  const currentContent = await readFileIfExists(absPath);
+  const currentExists = currentContent !== undefined;
+  const expectedExists = expectedContent !== undefined;
+
+  // File existence mismatch means it changed on disk
+  if (currentExists !== expectedExists) {
+    return true;
+  }
+
+  // Both exist but content differs
+  if (currentExists && expectedExists && currentContent !== expectedContent) {
+    return true;
+  }
+
+  return false;
+}
+
 const SEARCH_MARKER = "<<<<<<< SEARCH";
 const SEPARATOR = "=======";
 const REPLACE_MARKER = ">>>>>>> REPLACE";
