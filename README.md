@@ -251,6 +251,8 @@ If you have turned on the "AI instructions" section, the AI will generate the di
 
 Next to the status message, **Undo** and **Redo** buttons step backward and forward through your last 10 applied diffs (each "Apply Diffs" click counts as one checkpoint). Undo restores every file touched by that diff to its exact pre-apply state — including recreating a file the diff deleted, or deleting one it created — and Redo reverses that. Both buttons are greyed out when there's nothing to step to. This history is kept in memory for the current VS Code session, separately from your regular per-file `Ctrl + Z` undo, and from the single remembered "already applied" fingerprint used to warn against re-applying the same diff.
 
+Undo displays a warning if the file has been modified, checking both the saved file on disk and any unsaved changes in the editor.
+
 ### Adding more context
 
 #### Up front: the pattern textareas
