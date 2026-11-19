@@ -3,7 +3,7 @@
 [![VS Code Marketplace](https://img.shields.io/badge/VS%20Code-Marketplace-blue?logo=visualstudiocode)](https://marketplace.visualstudio.com/items?itemName=effessdev.reptclip-for-vscode)
 [![Open VSX](https://img.shields.io/badge/Open%20VSX-Registry-purple)](https://open-vsx.org/extension/effessdev/reptclip-for-vscode)
 
-Paste your project as clean Markdown context into a free Chatbot, and apply the generated diffs in one click!
+Paste your project as clean Markdown context into any free Chatbot, and apply the generated diffs in one click!
 
 <img width="1160" alt="Latest UI" src="https://github.com/user-attachments/assets/86319332-8c7c-4355-b1a5-340a7002216f" />
 
