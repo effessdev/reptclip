@@ -5,7 +5,14 @@
 
 Paste your project as clean Markdown context into any free Chatbot, and apply the generated diffs in one click!
 
-{I'll put the video demo here soon!}
+<video
+  src="https://github.com/user-attachments/assets/7511352d-5db7-4e2f-8182-970405924406"
+  controls
+  playsinline>
+  <a href="https://github.com/user-attachments/assets/7511352d-5db7-4e2f-8182-970405924406">
+    ▶ Watch the demo
+  </a>
+</video>
 
 ## How it works (in short)
 
