@@ -45,6 +45,8 @@ export type HostToWebviewMessage =
       type: "runResult";
       ok: true;
       fileCount: number;
+      copiedToClipboard: boolean;
+      writtenToFile: boolean;
       searchCount?: number;
       searchResultCount?: number;
     }

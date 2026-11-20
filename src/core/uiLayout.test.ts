@@ -32,4 +32,8 @@ test("panel keeps include/exclude inputs in a responsive split layout", () => {
   );
   assert.doesNotMatch(css, /resize:\s*vertical/i);
   assert.match(webviewJs, /No files attached\./);
+  assert.match(webviewJs, /Context copied to clipboard/);
+  assert.match(webviewJs, /Context written to file/);
+  assert.match(webviewJs, /copiedToClipboard && message\.writtenToFile/);
+  assert.match(webviewJs, /file\(s\) included/);
 });

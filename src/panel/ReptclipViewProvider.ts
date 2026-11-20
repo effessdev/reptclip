@@ -248,6 +248,8 @@ export class ReptclipViewProvider implements vscode.WebviewViewProvider {
                 type: "runResult",
                 ok: true,
                 fileCount: result.includedFiles.length,
+                copiedToClipboard: message.state.clipboard,
+                writtenToFile: message.state.outputFile.trim().length > 0,
               });
             } catch (err) {
               const message_ = err instanceof Error ? err.message : String(err);
@@ -293,6 +295,8 @@ export class ReptclipViewProvider implements vscode.WebviewViewProvider {
                 type: "runResult",
                 ok: true,
                 fileCount: result.includedFiles.length,
+                copiedToClipboard: message.state.clipboard,
+                writtenToFile: message.state.outputFile.trim().length > 0,
                 searchCount: result.searchCount,
                 searchResultCount: result.searchResultCount,
               });

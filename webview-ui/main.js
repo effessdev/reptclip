@@ -597,12 +597,21 @@
 
     if (message.type === "runResult") {
       if (message.ok) {
+        const destinationStatus =
+          message.copiedToClipboard && message.writtenToFile
+            ? "Context copied to clipboard and written to file"
+            : message.copiedToClipboard
+              ? "Context copied to clipboard"
+              : message.writtenToFile
+                ? "Context written to file"
+                : "Context generated but not written anywhere (please enable Copy to clipboard or specify Ouput file path)";
+
         setStatus(
           message.searchCount === undefined
             ? message.fileCount === 0
-              ? "No files attached."
-              : `Done: ${message.fileCount} file(s) included.`
-            : `Done: ${message.fileCount} file(s) included, ${message.searchCount} search(es) run, ${message.searchResultCount ?? 0} result(s) found.`,
+              ? `${destinationStatus}. No files attached.`
+              : `${destinationStatus}. ${message.fileCount} file(s) included.`
+            : `${destinationStatus}. ${message.fileCount} file(s) included, ${message.searchCount} search(es) run, ${message.searchResultCount ?? 0} result(s) found.`,
         );
       } else {
         setStatus(`Error: ${message.error}`, true);
