@@ -11,9 +11,11 @@ https://github.com/user-attachments/assets/7511352d-5db7-4e2f-8182-970405924406
 
 ## How it works (in short)
 
-Installing the extension adds a new "ReptClip" tab in the bottom panel of VS Code. Everything happens here. Press ``Ctrl + ` `` to show the panel, and click "ReptClip" to open the ReptClip tab.
+Installing the extension adds a **ReptClip** tab to the bottom panel in VS Code. This is where everything happens.
 
-> **Note:** When there is not enough space, the contents might get truncated. In that case, you have to click "..." to see the ReptClip panel button. You can drag it to the beginning of the list if you want it easily accessible.
+To open the tab, press ``Ctrl + ` `` to open the bottom panel, then select **ReptClip**.
+
+> **Note:** If there's not enough space to display all the panel tabs, ReptClip might be hidden under the **...** menu. You can drag the ReptClip tab to the beginning of the list to keep it easily accessible.
 
 ### The UI
 
