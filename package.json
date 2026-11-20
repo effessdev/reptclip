@@ -2,7 +2,7 @@
   "name": "reptclip-for-vscode",
   "displayName": "ReptClip - Copy Context, Apply Diffs",
   "description": "Paste your project as clean Markdown context into any free Chatbot, and apply the generated diffs in one click!",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "icon": "media/icon.png",
   "publisher": "effessdev",
   "private": true,
