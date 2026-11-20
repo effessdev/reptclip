@@ -40,7 +40,7 @@ The empty space between the **Apply Diffs** button and the undo button is used t
 
 ### Step 1: Copy context to clipboard
 
-Use "Files to include" text box to specify the files you want to include in the context. You can use relative paths or glob patterns (e.g., `src/**/*.py` to add all Python files in `src`). Press "Enter" or click the "Context" button to copy the context **straight to your clipboard**.
+Use "Files to include" text box to specify the files you want to include in the context. You can use relative paths or glob patterns (e.g., `src/**/*.py` to add all Python files in `src`). Press "Enter" or click the "Context" button to copy the context **straight to your clipboard**. If no files are selected, ReptClip shows **“No files attached.”** and keeps the remaining enabled context sections.
 
 ### Step 2: Paste context to your chatbot, along with your prompt
 

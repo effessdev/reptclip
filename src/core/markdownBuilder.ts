@@ -59,7 +59,11 @@ export function buildMarkdown(input: BuildMarkdownInput): string {
       return `## ${file}\n\n\`\`\`\n${content}\n\`\`\``;
     });
     parts.push(
-      `# Files${fileSections.length > 0 ? `\n\n${fileSections.join("\n\n")}` : ""}`,
+      `# Files${
+        fileSections.length > 0
+          ? `\n\n${fileSections.join("\n\n")}`
+          : "\n\nNo files attached."
+      }`,
     );
   }
 

@@ -62,6 +62,20 @@ test("buildMarkdown includes the enabled sections and omits the disabled ones", 
   assert.ok(!trimmed.includes("# Prompt"));
 });
 
+test("buildMarkdown shows a message when no files are attached", () => {
+  const markdown = buildMarkdown({
+    allFiles: ["src/a.ts"],
+    includedFiles: [],
+    fileContents: {},
+    includeStructure: false,
+    includeDiffFormat: false,
+    includeFiles: true,
+    includePromptTail: false,
+  });
+
+  assert.equal(markdown, "# Files\n\nNo files attached.\n");
+});
+
 test("buildMarkdown appends per-file line counts and the explanation when lineCounts is provided", () => {
   const markdown = buildMarkdown({
     allFiles: ["src/a.ts", "src/b.bin"],

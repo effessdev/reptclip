@@ -599,7 +599,9 @@
       if (message.ok) {
         setStatus(
           message.searchCount === undefined
-            ? `Done: ${message.fileCount} file(s) included.`
+            ? message.fileCount === 0
+              ? "No files attached."
+              : `Done: ${message.fileCount} file(s) included.`
             : `Done: ${message.fileCount} file(s) included, ${message.searchCount} search(es) run, ${message.searchResultCount ?? 0} result(s) found.`,
         );
       } else {
