@@ -35,7 +35,7 @@ The chatbot will provide the diffs in a single code block. Copy them, and click 
 
 ### Optional step (before step 3): Add more context
 
-If the chatbot wants to see more files or search the project, it will generate a code block containing `cat` and `grep` commands. You can copy that block and click the "More Context" button to copy the requested file contents and search results to the clipboard, and paste it back to the chatbot.
+If the chatbot wants to see more files or search the project, it will generate a code block containing custom `cat`, `grep`, and `read-lines` commands. You can copy that block and click the "More Context" button to copy output to the clipboard, and paste it back to the chatbot.
 
 > **A little behind-the-scenes:** Every animated WebP you see above was captured, edited, and exported using [GiffyPy](https://github.com/effessdev/GiffyPy), an all-in-one screen recording and video editing tool that I built myself.
 
