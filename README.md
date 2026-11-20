@@ -5,47 +5,58 @@
 
 Paste your project as clean Markdown context into any free Chatbot, and apply the generated diffs in one click!
 
-<img width="878" alt="ReptClip Panel UI" src="https://github.com/user-attachments/assets/917f77bd-0e2b-4191-8404-a1b72ae4fed2" />
+{I'll put the video demo here soon!}
 
-**Note:** The animations below show an older version of ReptClip, while the screenshot above shows the latest UI.
+## How it works (in short)
 
-## How it works
+Installing the extension adds a new "ReptClip" tab in the bottom panel of VS Code. Everything happens here. Press ``Ctrl + ` `` to show the panel, and click "ReptClip" to open the ReptClip tab.
 
-It's a 3-step process. Ideally, put VS Code and your free chatbot side-by-side.
+> **Note:** When there is not enough space, the contents might get truncated. In that case, you have to click "..." to see the ReptClip panel button. You can drag it to the beginning of the list if you want it easily accessible.
+
+### The UI
+
+It contains the following sections:
+
+- **Checkboxes (all are ON by default):**
+  - **Copy to clipboard:** Whether to copy the context to the clipboard.
+  - **Other checkboxes:** Used to toggle sections within the context (e.g., if you don't want the project structure in the context, disable "Project structure" checkbox to remove that section).
+- **Text boxes:**
+  - **Files to include:** Specify which files you want to include in the context. Enter relative file paths or glob patterns to match multiple files. Syntax highlighting and suggestions are supported!
+  - **Files to exclude:** Specify which files to exclude from the included files.
+  - **Output file:** Empty by default. If you provide a relative or absolute path, the context will also be written to that file.
+
+- **Buttons:**
+  - **Context:** Clicking this button copies the context to your clipboard.
+  - **More context:** We'll discuss this later 🙂
+  - **Apply Diffs:** Reads the diffs from your clipboard and applies them.
+  - **Button with a counterclockwise arrow icon:** Undoes the last diff (supports up to the last 10 diffs).
+  - **Button with a clockwise arrow icon:** Redoes the last undone diff.
+
+The empty space between the **Apply Diffs** button and the undo button is used to display status messages and errors.
 
 ### Step 1: Copy context to clipboard
 
-Specify the files you want to include in the context. You can use relative paths or glob patterns. Press "Enter" or click the "Context" button to copy the context **straight to your clipboard**.
+Use "Files to include" text box to specify the files you want to include in the context. You can use relative paths or glob patterns (e.g., `src/**/*.py` to add all Python files in `src`). Press "Enter" or click the "Context" button to copy the context **straight to your clipboard**.
 
-<img width="1152" alt="Copying context" src="https://github.com/user-attachments/assets/67367d63-fcb8-4951-9214-68fd5260eacf" />
+### Step 2: Paste context to your chatbot, along with your prompt
 
-Besides the files you specify, the context also includes the **project structure** and instructions on how to generate the output. You can enable/disable each section using checkboxes.
-
-### Step 2: Paste context into your chatbot, along with your prompt
-
-Send it and let it generate.
-
-<img width="1920" alt="Pasting context and prompting" src="https://github.com/user-attachments/assets/b273215a-28f5-4ab8-8f00-3fc2a444a09f" />
+The chatbot will generate the diffs for you, according to the instructions given in the "AI instructions" section in the context.
 
 ### Step 3: Apply the generated diffs
 
-The chatbot will provide the diffs in a single code block. Copy them, and click "Apply Diffs" to apply them.
+The chatbot will provide the diffs in a single code block. Copy that block, and click "Apply Diffs" to apply them.
 
-<img width="1152" alt="Applying diffs" src="https://github.com/user-attachments/assets/881f3a25-8d73-4376-8890-c89fb0157614" />
+Didn't like it? Click the Undo button. Changed your mind? Click the Redo button!
 
 ### Optional step (before step 3): Add more context
 
 If the chatbot wants to see more files or search the project, it will generate a code block containing custom `cat`, `grep`, and `read-lines` commands. You can copy that block and click the "More Context" button to copy output to the clipboard, and paste it back to the chatbot.
 
-> **A little behind-the-scenes:** Every animated WebP you see above was captured, edited, and exported using [GiffyPy](https://github.com/effessdev/GiffyPy), an all-in-one screen recording and video editing tool that I built myself.
+### Next time you come back...
 
-## How to use
+**The UI state is remembered per project**, so you don't have to re-enter them every time, and they won't be mixed up with other projects.
 
-1. Install the extension
-2. Open the bottom panel using `` Ctrl + ` ``
-3. Open the **ReptClip** tab in the panel (Click `...` if you can't see it)
-
-**All settings are remembered per project**, so you don't have to re-enter them every time, and they won't be mixed up with other projects.
+> **A little behind-the-scenes:** The video demo you see above was captured, edited, and exported using [GiffyPy](https://github.com/effessdev/GiffyPy), an all-in-one screen recording and video editing tool that I built myself, specifically for GitHub READMEs!
 
 ## Features
 
@@ -316,6 +327,14 @@ Here's what actually happens, in order:
 3. **Only then does it build.** `cat` and `read-lines` files are read through the shared pipeline (1 MB limit, binary detection, descriptive placeholders); `read-lines` then slices out the requested 1-indexed, inclusive line range (clamping `end_line` to the file's last line, or defaulting to it when omitted) before formatting. `grep` searches run in-process via grepts with `.gitignore` respect forced on, and matched files are re-checked through the embedding guard before their lines are embedded. The results are placed under `# Files`, with one `## <path>` (`cat`) or `## <the command as typed>` (`grep`, `read-lines`) subsection per command, and each subsection contains a code fence. The Project structure / AI instructions / Prompt section checkboxes are deliberately not applied, since those were already sent when you first generated the context.
 
 Supported `grep` flags: `-i` (ignore case), `-n` (line numbers, on by default), `-N` / `--no-line-number`, `-c` (count per file), `-l` (files with matches), `--files-without-match`, `-w` (whole words), `-F` (literal string), `-g <glob>` (filter files, e.g. `-g "*.ts"`), `-m <n>` (max matches per file), `-v` / `--invert-match`, `-U` (multiline), `--hidden`, `--max-depth <n>`, and `-e <pattern>`. Combined short flags (`-rn`) and `--` work too, and `-r` / `-R` / `-E` / `--no-color` are accepted as no-ops. Context flags (`-C` / `-A` / `-B`) are not supported by grepts yet and are rejected, as are `--no-ignore` (ignored files are never searched) and `-q` / `--quiet` (they would produce no output).
+
+### Optimized UI
+
+- **Side-by-side text areas:** The "Files to include" and "Files to exclude" text areas are displayed side by side to make efficient use of screen space. When the available width is insufficient, they automatically switch to a vertical layout. You can drag the divider between them to adjust their relative widths. Both text areas automatically expand as you type and maintain the same height, eliminating the need for manual resizing.
+
+- **Always-visible controls:** The "Context", "More Context", and "Apply Diffs" buttons, along with the status area and undo/redo buttons, remain visible at all times. When the available space is limited, the rest of the content becomes scrollable instead. This keeps the most important controls accessible without requiring you to scroll.
+
+- **Overflow-free status area:** Status messages and errors wrap automatically instead of overflowing their container. If the content exceeds the available space, the status area becomes scrollable. This is rarely necessary, as there is usually enough room to display the messages.
 
 ## Settings
 
