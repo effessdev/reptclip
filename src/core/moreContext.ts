@@ -8,7 +8,7 @@ import { GenerateResult } from "./types";
 /**
  * "More Context": the clipboard holds commands, one per line.
  * `cat <path>` embeds a file through the same guard/read pipeline as
- * Generate; `grep <flags> <pattern> [paths...]` searches the project with
+ * "Context"; `grep <flags> <pattern> [paths...]` searches the project with
  * grepts (in-process, no subprocess); `read-lines <path> <start_line>
  * [end_line]` embeds a 1-indexed, inclusive slice of a file through that
  * same pipeline, clamping `end_line` to the file's last line (or defaulting

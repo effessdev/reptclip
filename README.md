@@ -15,7 +15,7 @@ It's a 3-step process. Ideally, put VS Code and your free chatbot side-by-side.
 
 ### Step 1: Copy context to clipboard
 
-Specify the files you want to include in the context. You can use relative paths or glob patterns. Press "Enter" or click the "Generate" button to copy the context **straight to your clipboard**.
+Specify the files you want to include in the context. You can use relative paths or glob patterns. Press "Enter" or click the "Context" button to copy the context **straight to your clipboard**.
 
 <img width="1152" alt="Copying context" src="https://github.com/user-attachments/assets/67367d63-fcb8-4951-9214-68fd5260eacf" />
 
@@ -203,7 +203,7 @@ Do not make mistakes.
 <- Cursor lands here. You can quickly start typing.
 ````
 
-**Enter inside any input runs Generate**, so you never have to reach for the button; while the suggestion dropdown is open, Enter/Tab _accepts_ the highlighted file instead, and `Shift + Enter` always inserts a newline.
+**Enter inside any input runs "Context"**, so you never have to reach for the button; while the suggestion dropdown is open, Enter/Tab _accepts_ the highlighted file instead, and `Shift + Enter` always inserts a newline.
 
 You can uncheck "Copy to clipboard" to turn it off.
 
@@ -215,7 +215,7 @@ You can uncheck "Copy to clipboard" to turn it off.
 
 - **Oversized and binary files are skipped automatically**, replaced by a descriptive placeholder in the output (limit: 1 MB; binaries detected via NUL-byte sniffing), they still appear in the project structure listing — without a line count, since the same limit and binary check decide whether one can be shown.
 
-- **There is no second implementation for "More Context" to worry about.** Its commands come from the clipboard instead of the pattern textareas, but `cat` paths are checked and read through the exact same pipeline as Generate: same `.gitignore` enforcement, same size/binary guards, same Markdown builder. `grep` runs in-process via [grepts](https://github.com/ahmadawais/grepts) with `.gitignore` respect forced on (`--no-ignore` is refused), and every matched file is re-checked through the same embedding guard before any of its lines are embedded. The only difference is what gets wrapped around the results: More Context emits the requested file and search sections alone, no project structure, "AI instructions", or "Prompt" sections, so a mid-conversation supplement pastes cleanly on top of what the chatbot already has.
+- **There is no second implementation for "More Context" to worry about.** Its commands come from the clipboard instead of the pattern textareas, but `cat` paths are checked and read through the exact same pipeline as the Context button: same `.gitignore` enforcement, same size/binary guards, same Markdown builder. `grep` runs in-process via [grepts](https://github.com/ahmadawais/grepts) with `.gitignore` respect forced on (`--no-ignore` is refused), and every matched file is re-checked through the same embedding guard before any of its lines are embedded. The only difference is what gets wrapped around the results: More Context emits the requested file and search sections alone, no project structure, "AI instructions", or "Prompt" sections, so a mid-conversation supplement pastes cleanly on top of what the chatbot already has.
 
 ### Write context to file
 

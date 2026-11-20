@@ -67,10 +67,10 @@ async function collectLineCounts(
  * and "Prompt" sections are never added, so a mid-conversation supplement
  * pastes cleanly on top of the context already in the chat instead of
  * repeating scaffolding the chatbot has already seen. The file reads still go
- * through the exact same `buildContext` pipeline as Generate.
+ * through the exact same `buildContext` pipeline as "Context".
  *
  * Naming a file here grants no access: the same `.gitignore` rules that shape
- * Generate's candidate pool apply, and the whole list is validated up front so
+ * "Context"'s candidate pool apply, and the whole list is validated up front so
  * a single unacceptable path aborts the run instead of producing partial
  * context.
  */
@@ -169,7 +169,7 @@ async function findRejectedPaths(
 }
 
 // Which optional sections to wrap around the embedded files. Kept separate
-// from `UiState` so callers (Generate vs. More Files) can opt in explicitly.
+// from `UiState` so callers ("Context" vs. "More Context") can opt in explicitly.
 interface SectionOptions {
   includeStructure: boolean;
   includeDiffFormat: boolean;

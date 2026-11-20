@@ -10,7 +10,7 @@ body {
   padding: 10px 12px;
   margin: 0;
   /* Fixed-height flex column: the input sections scroll inside `.content`
-     while the actions row (Generate button) stays pinned to the bottom, so
+     while the actions row (Context button) stays pinned to the bottom, so
      it remains visible even in a short panel. */
   display: flex;
   flex-direction: column;
@@ -327,7 +327,7 @@ button#redoBtn:hover {
 }
 
 /* Secondary look so "Apply Diffs" reads as a companion action
-   to the primary "Generate" button. */
+   to the primary "Context" button. */
 button#applyBtn,
 button#moreContextBtn,
 button#undoBtn,

@@ -28,7 +28,7 @@ export function getHtml(
     <div id="warning" class="warning" hidden>Open a folder to use ReptClip.</div>
 
     <section class="section checkboxes">
-      <label>Click Generate or press enter inside an input to copy</label>
+      <label>Click Context or press enter inside an input to copy</label>
       <label class="checkbox">
         <input type="checkbox" id="clipboard" />
         <span>Copy to clipboard</span>
@@ -88,7 +88,7 @@ export function getHtml(
   </div>
 
   <div class="actions">
-    <button id="runBtn" type="button">Generate</button>
+    <button id="runBtn" type="button">Context</button>
     <button id="moreContextBtn" type="button" title="Run cat/grep commands from the clipboard to embed files and search the project">More Context</button>
     <button id="applyBtn" type="button" title="Read Search/Replace blocks from the clipboard and apply them to the workspace">Apply Diffs</button>
     <span id="status" class="status" aria-live="polite"></span>

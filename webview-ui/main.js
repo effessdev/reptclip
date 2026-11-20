@@ -271,7 +271,7 @@
   }
 
   // The host reads cat/grep commands from the clipboard, embeds the named
-  // files, runs the searches, and honors the same output options as Generate.
+  // files, runs the searches, and honors the same output options as "Context".
   function moreContextFromClipboard() {
     setStatus("Working…");
     vscode.postMessage({ type: "moreContext", state: currentState() });
