@@ -127,6 +127,7 @@ export class ReptclipViewProvider implements vscode.WebviewViewProvider {
         }
         this.fileChangeTimer = setTimeout(() => {
           this.files = undefined; // force a fresh scan on the next evaluation
+          this.candidates = undefined; // force a fresh candidate list for suggestions
           if (this.lastHighlight) {
             void evaluateHighlight(
               this.lastHighlight.requestId,
