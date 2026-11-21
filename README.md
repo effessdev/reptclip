@@ -61,10 +61,6 @@ Didn't like it? Click the Undo button. Changed your mind? Click the Redo button!
 
 If the chatbot wants to see more files or search the project, it will generate a code block containing the following custom commands:
 
-- `cat`: Read an entire file
-- `read-lines`: Read from a start line to an optional stop line (or the end of the file)
-- `grep`: Search across the codebase
-
 - **`cat <path>`** To read a file.
 - **`grep <flags> <pattern> [paths...]`**: To search across the project with [grepts](https://github.com/ahmadawais/grepts).
 - **`read-lines <path> <start_line> [end_line]`** To read from a start line to an optional stop line (end of the file if not specified)
