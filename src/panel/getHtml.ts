@@ -53,7 +53,7 @@ export function getHtml(
 
     <div id="pattern-pair" class="pattern-pair">
       <section id="include-section" class="section pattern-column pattern-column--include">
-        <label for="include">Files to include (separated by spaces, glob patterns supported)</label>
+        <label for="include">Files to attach (separated by spaces, glob patterns supported)</label>
         <div class="pattern-editor">
           <div id="include-backdrop" class="pattern-backdrop" aria-hidden="true"></div>
           <textarea
@@ -68,7 +68,7 @@ export function getHtml(
       <div class="pattern-divider" aria-hidden="true" title="Drag to resize include/exclude columns"></div>
 
       <section id="exclude-section" class="section pattern-column pattern-column--exclude">
-        <label for="exclude">Files to exclude from included files</label>
+        <label for="exclude">Files to exclude from attatched files</label>
         <div class="pattern-editor">
           <div id="exclude-backdrop" class="pattern-backdrop" aria-hidden="true"></div>
           <textarea

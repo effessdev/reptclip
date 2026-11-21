@@ -26,7 +26,7 @@ It contains the following sections:
   - **Other checkboxes:** Used to toggle sections within the context (e.g., if you don't want the project structure in the context, disable "Project structure" checkbox to remove that section).
 
 - **Text boxes:**
-  - **Files to include:** Specify which files you want to include in the context. Enter relative file paths or glob patterns to match multiple files. Syntax highlighting and suggestions are supported!
+  - **Files to attach:** Specify which files you want to include in the context. Enter relative file paths or glob patterns to match multiple files. Syntax highlighting and suggestions are supported!
   - **Files to exclude:** Specify which files to exclude from the included files.
   - **Output file:** Empty by default. If you provide a relative or absolute path, the context will also be written to that file.
 
@@ -43,7 +43,7 @@ The empty space between the **Apply Diffs** button and the undo button is used t
 
 The context consists of the **Project structure**, **AI instructions**, and **attatched files**. All in Markdown. [See example context](#preparing-context)
 
-Use "Files to include" text box to attatch files to the context. You can use relative paths or glob patterns (e.g., `src/**/*.py` to add all Python files in `src`). You will get **live suggestions** and **syntax highlighting** as you type. Press "Enter" or click the "Context" button to copy the context **straight to your clipboard**.
+Use "Files to attach" text box to attatch files to the context. You can use relative paths or glob patterns (e.g., `src/**/*.py` to add all Python files in `src`). You will get **live suggestions** and **syntax highlighting** as you type. Press "Enter" or click the "Context" button to copy the context **straight to your clipboard**.
 
 If no files are selected, ReptClip shows **“No files attached.”** and keeps the remaining enabled context sections.
 
@@ -85,10 +85,10 @@ The generated context has the following sections (**each one can be toggled ON o
 
 - **Project structure:** lists the relative paths to all files in the project that have not been ignored using `.gitignore`, with their line count.
 - **AI instructions:** contains the instructions regarding how to generate the output.
-- **Files:** the files you attatched (specified in "Files to include" text box).
+- **Files:** the files you attatched (specified in "Files to attach" text box).
 - **Prompt section:** an empty `# Prompt\n\n` section to type in your prompt.
 
-You can attatch files in the context by either entering the relative paths of them or a matching glob pattern in the **Files to include** text box, separated by spaces. Mid-conversation context additions are handled by the **More Context** button (see [Adding more context](#adding-more-context-the-more-context-button)).
+You can attatch files in the context by either entering the relative paths of them or a matching glob pattern in the **Files to attach** text box, separated by spaces. Mid-conversation context additions are handled by the **More Context** button (see [Adding more context](#adding-more-context-the-more-context-button)).
 
 Example generated context when all sections are enabled and only `AGENTS.md` is attatched:
 
@@ -129,15 +129,15 @@ You can uncheck "Copy to clipboard" to turn it off.
 
 #### Live suggestions and syntax highlighting
 
-A relative path or a glob pattern in "Files to include" will turn **green** if they match at least one file, and turn **yellow** if they math no files. For "Files to exclude", green means it matches **at least one included file**.
+A relative path or a glob pattern in "Files to attach" will turn **green** if they match at least one file, and turn **yellow** if they math no files. For "Files to exclude", green means it matches **at least one included file**.
 
 #### Order is preserved
 
-The order in which you entered the relative paths or glob patterns is preserved. In case of redundant items, **the item that comes last gets order preference**, so if you set files to include as `**/*.py main.py`, `main.py` comes after all other `.py` files. `**/*.py src/**/*.py` puts `.py` files in `src` last. This is particularly useful for putting the most important files closer to the prompt.
+The order in which you entered the relative paths or glob patterns is preserved. In case of redundant items, **the item that comes last gets order preference**, so if you set files to attach as `**/*.py main.py`, `main.py` comes after all other `.py` files. `**/*.py src/**/*.py` puts `.py` files in `src` last. This is particularly useful for putting the most important files closer to the prompt.
 
 Example:
 
-- **Files to include:** `AGENTS.md **/*.py src/main.py`
+- **Files to attach:** `AGENTS.md **/*.py src/main.py`
 - **Files to exclude:** `src/secret.py src/**/*.py`
 
 This will attatch `AGENTS.md` and all Python files, but exclude `src/secret.py` and all Python files in `tests`, and put `src/main.py` last:
@@ -264,7 +264,7 @@ Here's what actually happens, in order:
 
 ### Optimized UI
 
-- **Side-by-side text areas:** The "Files to include" and "Files to exclude" text areas are displayed side by side to make efficient use of screen space. When the available width is insufficient, they automatically switch to a vertical layout. You can drag the divider between them to adjust their relative widths. Both text areas automatically expand as you type and maintain the same height, eliminating the need for manual resizing.
+- **Side-by-side text areas:** The "Files to attach" and "Files to exclude" text areas are displayed side by side to make efficient use of screen space. When the available width is insufficient, they automatically switch to a vertical layout. You can drag the divider between them to adjust their relative widths. Both text areas automatically expand as you type and maintain the same height, eliminating the need for manual resizing.
 
 - **Always-visible controls:** The "Context", "More Context", and "Apply Diffs" buttons, along with the status area and undo/redo buttons, remain visible at all times. When the available space is limited, the rest of the content becomes scrollable instead. This keeps the most important controls accessible without requiring you to scroll.
 
@@ -276,7 +276,7 @@ Open VS Code's Settings (`Ctrl+,` / `Cmd+,`) and search for **"ReptClip"** to co
 
 | Setting                             | Default | Description                                                              |
 | ----------------------------------- | ------- | ------------------------------------------------------------------------ |
-| `reptclip.defaultInclude`           | `""`    | Default value for the **Files to include** field.                        |
+| `reptclip.defaultInclude`           | `""`    | Default value for the **Files to attach** field.                         |
 | `reptclip.defaultExclude`           | `""`    | Default value for the **Files to exclude** field.                        |
 | `reptclip.defaultClipboard`         | `true`  | Whether **Copy to clipboard** is checked by default.                     |
 | `reptclip.defaultProjectStructure`  | `true`  | Whether the **Project structure** section is checked by default.         |

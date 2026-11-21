@@ -59,7 +59,7 @@
         "reptclip.defaultInclude": {
           "type": "string",
           "default": "",
-          "markdownDescription": "Default value for the **Files to include** field on a project that has no saved ReptClip state yet."
+          "markdownDescription": "Default value for the **Files to attach** field on a project that has no saved ReptClip state yet."
         },
         "reptclip.defaultExclude": {
           "type": "string",
