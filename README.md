@@ -9,7 +9,7 @@ Watch the video demo below to see it in action 🔥
 
 https://github.com/user-attachments/assets/7511352d-5db7-4e2f-8182-970405924406
 
-## How it works (in short)
+## How it works (briefly)
 
 Installing the extension adds a **ReptClip** tab to the bottom panel in VS Code. This is where everything happens.
 
@@ -53,13 +53,23 @@ The chatbot will generate the diffs for you, according to the instructions provi
 
 ### Step 3: Apply the generated diffs
 
-The chatbot will provide the diffs in a single code block. Copy that block, and click "Apply Diffs" to apply them.
+The chatbot outputs all diffs in a single code block covering line removals, additions, edits, and updates, file moves or renames, file creation, and file deletion. Copy the block and click **Apply Diffs** to apply the changes.
 
 Didn't like it? Click the Undo button. Changed your mind? Click the Redo button!
 
 ### Optional step (before step 3): Add more context
 
-If the chatbot wants to see more files or search the project, it will generate a code block containing _custom_ `cat`, `grep`, and `read-lines` commands. You can copy that block and click the "More Context" button to copy output to the clipboard, and paste it back to the chatbot.
+If the chatbot wants to see more files or search the project, it will generate a code block containing the following custom commands:
+
+- `cat`: Read an entire file
+- `read-lines`: Read from a start line to an optional stop line (or the end of the file)
+- `grep`: Search across the codebase
+
+- **`cat <path>`** To read a file.
+- **`grep <flags> <pattern> [paths...]`**: To search across the project with [grepts](https://github.com/ahmadawais/grepts).
+- **`read-lines <path> <start_line> [end_line]`** To read from a start line to an optional stop line (end of the file if not specified)
+
+You can copy that block and click the "More Context" button to copy output to the clipboard, and paste it back to the chatbot.
 
 ### Next time you come back...
 
