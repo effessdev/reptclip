@@ -17,6 +17,10 @@ import { GenerateResult } from "./types";
  * read-lines).
  */
 
+// -----------------------------------------------------------------------------
+// 1. Public types
+// -----------------------------------------------------------------------------
+
 export type MoreContextCommand =
   | { kind: "cat"; relPath: string; line: string }
   | { kind: "grep"; request: GrepRequest; line: string }
@@ -55,6 +59,10 @@ export interface MoreContextResult extends GenerateResult {
   /** Total number of search results returned across all grep commands. */
   searchResultCount: number;
 }
+
+// -----------------------------------------------------------------------------
+// 2. Grep flag definitions
+// -----------------------------------------------------------------------------
 
 const SHORT_BOOLEAN: Record<string, string | undefined> = {
   i: "ignore-case",
@@ -111,6 +119,10 @@ const LONG_UNSUPPORTED: Record<string, string | undefined> = {
   "after-context": "context lines are not supported by grepts yet",
   quiet: "quiet mode produces no output",
 };
+
+// -----------------------------------------------------------------------------
+// 3. Command parsing
+// -----------------------------------------------------------------------------
 
 /**
  * Splits clipboard text into commands, one per line: blank lines skipped,
@@ -367,6 +379,10 @@ function parseGrepArgs(args: string[]): GrepRequest {
   return request;
 }
 
+// -----------------------------------------------------------------------------
+// 4. Command validation
+// -----------------------------------------------------------------------------
+
 type ValidatedCommand =
   | { kind: "cat"; relPath: string; absPath: string; line: string }
   | { kind: "grep"; request: GrepRequest; absPaths: string[]; line: string }
@@ -511,6 +527,10 @@ async function validateSearchPaths(
   return valid ? absPaths : undefined;
 }
 
+// -----------------------------------------------------------------------------
+// 5. Grep execution
+// -----------------------------------------------------------------------------
+
 type GreptsModule = typeof import("grepts");
 type EmbeddingGuard = ReturnType<typeof createEmbeddingGuard>;
 
@@ -588,6 +608,10 @@ async function runGrep(
  * defaults to it when omitted), so a range that runs past the end of the
  * file simply stops there.
  */
+// -----------------------------------------------------------------------------
+// 6. Output formatting and file-reading helpers
+// -----------------------------------------------------------------------------
+
 function sliceLines(
   content: string,
   startLine: number,
@@ -651,6 +675,10 @@ async function renderFileCommand(
  * search output are embedded — no project structure, AI instructions, or
  * prompt scaffolding — so the supplement pastes cleanly onto existing context.
  */
+// -----------------------------------------------------------------------------
+// 7. Public entry point
+// -----------------------------------------------------------------------------
+
 export async function moreContext(
   rootDir: string,
   commandText: string,
