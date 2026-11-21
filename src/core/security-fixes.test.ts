@@ -1034,6 +1034,115 @@ test("E11 does not flag an ordinary file whose name merely contains 'gitignore'"
   );
 });
 
+// ---------------------------------------------------------------------------
+// E12 - an NTFS alternate-data-stream alias must not bypass .gitignore.
+// ---------------------------------------------------------------------------
+
+test("E12 refuses writing a gitignored file via its ADS alias", async () => {
+  const root = await makeRoot("reptclip-e12-");
+  await writeFile(root, ".gitignore", ".env\n");
+  await writeFile(root, ".env", "TOKEN=1\n");
+
+  await assert.rejects(
+    () => applyDiffs(root, block(".env::$DATA", "TOKEN=1", "TOKEN=2")),
+    /gitignore/i,
+  );
+  assert.equal(await fs.readFile(path.join(root, ".env"), "utf8"), "TOKEN=1\n");
+});
+
+test("E12 refuses creating a new file at a gitignored path via its ADS alias", async () => {
+  const root = await makeRoot("reptclip-e12-create-");
+  await writeFile(root, ".gitignore", "secrets.json\n");
+
+  await assert.rejects(
+    () => applyDiffs(root, block("secrets.json::$DATA", "", "{}")),
+    /gitignore/i,
+  );
+  assert.equal(
+    await fs
+      .access(path.join(root, "secrets.json"))
+      .then(() => true)
+      .catch(() => false),
+    false,
+  );
+});
+
+test("E12 refuses deleting a gitignored file via its ADS alias", async () => {
+  const root = await makeRoot("reptclip-e12-delete-");
+  await writeFile(root, ".gitignore", ".env\n");
+  await writeFile(root, ".env", "TOKEN=1\n");
+
+  await assert.rejects(
+    () => applyDiffs(root, ".env::$DATA delete"),
+    /gitignore/i,
+  );
+  assert.equal(await fs.readFile(path.join(root, ".env"), "utf8"), "TOKEN=1\n");
+});
+
+test("E12 refuses a move whose source or destination is a gitignored ADS alias", async () => {
+  const root = await makeRoot("reptclip-e12-move-");
+  await writeFile(root, ".gitignore", ".env\nsecrets.json\n");
+  await writeFile(root, ".env", "TOKEN=1\n");
+  await writeFile(root, "plain.txt", "hello\n");
+
+  // Source is an ADS alias of a gitignored file.
+  await assert.rejects(
+    () => applyDiffs(root, ".env::$DATA -> moved.txt"),
+    /gitignore/i,
+  );
+  assert.equal(
+    await fs
+      .access(path.join(root, "moved.txt"))
+      .then(() => true)
+      .catch(() => false),
+    false,
+  );
+
+  // Destination is an ADS alias of a gitignored path.
+  await assert.rejects(
+    () => applyDiffs(root, "plain.txt -> secrets.json::$DATA"),
+    /gitignore/i,
+  );
+  assert.equal(
+    await fs.readFile(path.join(root, "plain.txt"), "utf8"),
+    "hello\n",
+  );
+});
+
+test("E12 still allows writing an ungitignored file through an ADS-like path", async () => {
+  const root = await makeRoot("reptclip-e12-allow-");
+  const file = await writeFile(root, "notes.txt", "v1\n");
+
+  const result = await applyDiffs(root, block("notes.txt::$DATA", "v1", "v2"));
+  assert.equal(result.modified, 1);
+  assert.equal(await fs.readFile(file, "utf8"), "v2\n");
+});
+
+test("E12 refuses editing .gitignore itself via its ADS alias without confirmation", async () => {
+  const root = await makeRoot("reptclip-e12-gi-");
+  await writeFile(root, ".gitignore", ".env\n");
+
+  await assert.rejects(
+    () => applyDiffs(root, block(".gitignore::$DATA", ".env", ".env\n*.log")),
+    /gitignore/i,
+  );
+  assert.equal(
+    await fs.readFile(path.join(root, ".gitignore"), "utf8"),
+    ".env\n",
+  );
+
+  const result = await applyDiffs(
+    root,
+    block(".gitignore::$DATA", ".env", ".env\n*.log"),
+    { confirmGitignoreEdits: async () => true },
+  );
+  assert.equal(result.modified, 1);
+  assert.equal(
+    await fs.readFile(path.join(root, ".gitignore"), "utf8"),
+    ".env\n*.log\n",
+  );
+});
+
 test("standalone move and delete operations apply and round-trip", async () => {
   const root = await makeRoot("reptclip-move-delete-");
   const source = await writeFile(root, "src/old.txt", "keep me\n");
