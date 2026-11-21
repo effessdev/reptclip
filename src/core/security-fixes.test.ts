@@ -870,6 +870,169 @@ test("E10 exact, fuzzy, create, delete and a three-step undo/redo round trip", a
   assert.equal(await fs.readFile(file, "utf8"), "let value = 1;\n");
 });
 
+// ---------------------------------------------------------------------------
+// E11 - modifying .gitignore itself must require explicit confirmation.
+// ---------------------------------------------------------------------------
+
+test("E11 refuses to edit .gitignore without an explicit confirmation", async () => {
+  const root = await makeRoot("reptclip-e11-edit-");
+  await writeFile(root, ".gitignore", ".env\n");
+
+  await assert.rejects(
+    () => applyDiffs(root, block(".gitignore", ".env", ".env\n*.log")),
+    /gitignore/i,
+  );
+  assert.equal(
+    await fs.readFile(path.join(root, ".gitignore"), "utf8"),
+    ".env\n",
+  );
+});
+
+test("E11 applies a .gitignore edit only when the confirmation resolves true", async () => {
+  const root = await makeRoot("reptclip-e11-edity-");
+  await writeFile(root, ".gitignore", ".env\n");
+
+  const result = await applyDiffs(
+    root,
+    block(".gitignore", ".env", ".env\n*.log"),
+    {
+      confirmGitignoreEdits: async (paths) =>
+        paths.length === 1 && paths[0] === ".gitignore",
+    },
+  );
+  assert.equal(result.modified, 1);
+  assert.equal(
+    await fs.readFile(path.join(root, ".gitignore"), "utf8"),
+    ".env\n*.log",
+  );
+});
+
+test("E11 aborts a .gitignore edit without writing when confirmation is declined", async () => {
+  const root = await makeRoot("reptclip-e11-editn-");
+  await writeFile(root, ".gitignore", ".env\n");
+
+  await assert.rejects(
+    () =>
+      applyDiffs(root, block(".gitignore", ".env", ".env\n*.log"), {
+        confirmGitignoreEdits: async () => false,
+      }),
+    /cancel|declin|abort/i,
+  );
+  assert.equal(
+    await fs.readFile(path.join(root, ".gitignore"), "utf8"),
+    ".env\n",
+  );
+});
+
+test("E11 refuses creating a new .gitignore without confirmation", async () => {
+  const root = await makeRoot("reptclip-e11-create-");
+
+  await assert.rejects(
+    () => applyDiffs(root, block("nested/.gitignore", "", "*.log\n")),
+    /gitignore/i,
+  );
+  assert.equal(
+    await fs
+      .access(path.join(root, "nested/.gitignore"))
+      .then(() => true)
+      .catch(() => false),
+    false,
+  );
+});
+
+test("E11 refuses deleting .gitignore without confirmation", async () => {
+  const root = await makeRoot("reptclip-e11-delete-");
+  await writeFile(root, ".gitignore", ".env\n");
+
+  await assert.rejects(
+    () => applyDiffs(root, ".gitignore delete"),
+    /gitignore/i,
+  );
+  assert.equal(
+    await fs.readFile(path.join(root, ".gitignore"), "utf8"),
+    ".env\n",
+  );
+
+  const result = await applyDiffs(root, ".gitignore delete", {
+    confirmGitignoreEdits: async () => true,
+  });
+  assert.equal(result.deleted, 1);
+  assert.equal(
+    await fs
+      .access(path.join(root, ".gitignore"))
+      .then(() => true)
+      .catch(() => false),
+    false,
+  );
+});
+
+test("E11 refuses moving .gitignore away or onto a new path without confirmation", async () => {
+  const root = await makeRoot("reptclip-e11-move-");
+  await writeFile(root, ".gitignore", ".env\n");
+
+  // Moving .gitignore away from its tracked location.
+  await assert.rejects(
+    () => applyDiffs(root, ".gitignore -> old.gitignore.bak"),
+    /gitignore/i,
+  );
+  assert.equal(
+    await fs.readFile(path.join(root, ".gitignore"), "utf8"),
+    ".env\n",
+  );
+
+  // Moving some other file onto a new .gitignore destination.
+  await writeFile(root, "staged-ignore.txt", "*.log\n");
+  await assert.rejects(
+    () => applyDiffs(root, "staged-ignore.txt -> nested/.gitignore"),
+    /gitignore/i,
+  );
+  assert.equal(
+    await fs
+      .access(path.join(root, "nested/.gitignore"))
+      .then(() => true)
+      .catch(() => false),
+    false,
+  );
+
+  const result = await applyDiffs(
+    root,
+    "staged-ignore.txt -> nested/.gitignore",
+    { confirmGitignoreEdits: async () => true },
+  );
+  assert.equal(result.created, 1);
+  assert.equal(result.deleted, 1);
+  assert.equal(
+    await fs.readFile(path.join(root, "nested/.gitignore"), "utf8"),
+    "*.log\n",
+  );
+});
+
+test("E11 does not require confirmation for reading .gitignore", async () => {
+  const root = await makeRoot("reptclip-e11-read-");
+  await writeFile(root, ".gitignore", ".env\n");
+
+  const guard = createEmbeddingGuard(root);
+  const verdict = await guard(".gitignore");
+  assert.equal(verdict.ok, true);
+});
+
+test("E11 does not flag an ordinary file whose name merely contains 'gitignore'", async () => {
+  const root = await makeRoot("reptclip-e11-notfile-");
+  await writeFile(root, "my.gitignore.txt", "note\n");
+
+  // No confirmGitignoreEdits supplied; this must succeed on its own, proving
+  // the check is scoped to the exact basename ".gitignore".
+  const result = await applyDiffs(
+    root,
+    block("my.gitignore.txt", "note", "updated note"),
+  );
+  assert.equal(result.modified, 1);
+  assert.equal(
+    await fs.readFile(path.join(root, "my.gitignore.txt"), "utf8"),
+    "updated note\n",
+  );
+});
+
 test("standalone move and delete operations apply and round-trip", async () => {
   const root = await makeRoot("reptclip-move-delete-");
   const source = await writeFile(root, "src/old.txt", "keep me\n");

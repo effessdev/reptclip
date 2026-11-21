@@ -353,26 +353,21 @@ export class ReptclipViewProvider implements vscode.WebviewViewProvider {
                 }
               }
 
-              const allowProtectedWrites = vscode.workspace
-                .getConfiguration("reptclip")
-                .get<boolean>("allowProtectedFileWrites", false);
               const captured = this.captureBuffers();
               const result = await applyDiffs(rootDir, clipboardText, {
                 bufferOverrides: captured.buffers,
                 assertBuffersCurrent: captured.assertCurrent,
-                confirmProtectedPaths: allowProtectedWrites
-                  ? async (paths) => {
-                      const choice = await vscode.window.showWarningMessage(
-                        `This diff writes protected paths: ${paths.join(", ")}. Git executes content from .git, and .env* changes the project configuration. Apply anyway?`,
-                        { modal: true },
-                        "Apply anyway",
-                      );
-                      return choice === "Apply anyway";
-                    }
-                  : undefined,
                 confirmSuspiciousReplace: async (files) => {
                   const choice = await vscode.window.showWarningMessage(
                     `The REPLACE block for ${files.join(", ")} contains a "=======" line. That usually means a SEARCH separator was swallowed and more code will change than intended. Apply anyway?`,
+                    { modal: true },
+                    "Apply anyway",
+                  );
+                  return choice === "Apply anyway";
+                },
+                confirmGitignoreEdits: async (paths) => {
+                  const choice = await vscode.window.showWarningMessage(
+                    `This diff modifies .gitignore (${paths.join(", ")}). Changing it can un-ignore sensitive files, such as .env, so they would start being read and written by ReptClip. Apply anyway?`,
                     { modal: true },
                     "Apply anyway",
                   );
