@@ -192,6 +192,8 @@ Your chatbot can:
 
 - **`.git` is always refused**, at any depth, regardless of `.gitignore` content — git executes content from there (hooks, aliases, `core.fsmonitor`), so a diff must never be able to write to it.
 
+- **A Windows NTFS alternate-data-stream alias can't bypass a `.gitignore` rule.** `.env::$DATA` refers to the same file as `.env`, so a diff targeting that alias is checked against `.gitignore` as if it were the plain path.
+
 - **Editing, creating, deleting, or moving a `.gitignore` file asks for confirmation first.** Since changing one can un-ignore something previously protected (like `.env`), ReptClip won't apply such a change silently — you'll see a dialog explaining the risk before it goes through.
 
 - **A diff path must stay inside the workspace, even through symlinks and junctions.** Diff paths are resolved with `fs.realpath` before anything is written, including dangling links, so a link inside the project cannot turn `linked/file.txt` into a write outside it. Hard links are not covered: they are the same file under a local path, so there is no path difference to detect.

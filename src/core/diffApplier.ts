@@ -126,14 +126,30 @@ const SEPARATOR = "=======";
 const REPLACE_MARKER = ">>>>>>> REPLACE";
 
 /**
+ * Strips a trailing NTFS alternate-data-stream suffix (e.g. `.env::$DATA`)
+ * from a path's final segment. On Windows, `file::$DATA` is the same file as
+ * `file` — just an explicit name for its default stream — so without this,
+ * a diff could target `.env::$DATA` to bypass a `.gitignore` rule written
+ * for plain `.env`.
+ */
+function stripAdsSuffix(relative: string): string {
+  const segments = relative.split(/[\\/]+/).filter(Boolean);
+  if (segments.length === 0) {
+    return relative;
+  }
+  const last = segments[segments.length - 1];
+  segments[segments.length - 1] = last.split(":")[0];
+  return segments.join("/");
+}
+
+/**
  * Whether a diff path's final segment is `.gitignore`. Touching one of these
  * is flagged separately from an ordinary file: it changes which paths are
  * excluded above, so editing, creating, deleting, or moving one can silently
  * un-ignore something sensitive (like `.env`) that was previously protected.
  */
 function isGitignoreFile(relative: string): boolean {
-  const segments = relative.split(/[\\/]+/).filter(Boolean);
-  const base = (segments[segments.length - 1] ?? "").toLowerCase();
+  const base = stripAdsSuffix(relative).split("/").pop()!.toLowerCase();
   return base === ".gitignore";
 }
 
@@ -647,7 +663,7 @@ export async function applyDiffs(
   for (const block of blocks) {
     const target = await resolveFile(rootDir, block.file);
     resolvedTargets.push(target);
-    const verdict = await isEmbeddable(block.file);
+    const verdict = await isEmbeddable(stripAdsSuffix(block.file));
     if (!verdict.ok) {
       refusedPaths.set(block.file, verdict.reason ?? "not a trackable path");
     }
@@ -658,7 +674,9 @@ export async function applyDiffs(
       }
       const destination = await resolveFile(rootDir, block.destination);
       resolvedDestinations.push(destination);
-      const destVerdict = await isEmbeddable(block.destination!);
+      const destVerdict = await isEmbeddable(
+        stripAdsSuffix(block.destination!),
+      );
       if (!destVerdict.ok) {
         refusedPaths.set(
           block.destination!,
