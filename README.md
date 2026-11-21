@@ -79,7 +79,7 @@ You can copy that block and click the "More Context" button to copy output to th
 
 ### Why you can trust it
 
-ReptClip only touches files that are tracked by git — anything your `.gitignore` excludes is completely off-limits, for reading, searching, writing, creating, or deleting, and `.git` itself is always off-limits too. Changing a `.gitignore` file always asks for confirmation first, since that can un-ignore something that was previously protected. If something ever goes wrong anyway, you can simply discard the changes with git.
+ReptClip only touches files that are tracked by git. Anything your `.gitignore` files (at any depth) exclude is completely off-limits, for reading, searching, writing, creating, or deleting. `.git` folders are always off-limits too. Changing a `.gitignore` file always asks for confirmation first, since that can un-ignore something that was previously protected. If something ever goes wrong anyway, you can simply discard the changes with git.
 
 See [Safety measures for context](#safety-measures-for-context) and [Safety measures for applying diffs](#safety-measures-for-applying-diffs) for the full details.
 
