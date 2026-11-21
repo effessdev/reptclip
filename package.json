@@ -56,7 +56,7 @@
     "configuration": {
       "title": "ReptClip",
       "properties": {
-        "reptclip.defaultInclude": {
+        "reptclip.defaultAttach": {
           "type": "string",
           "default": "",
           "markdownDescription": "Default value for the **Files to attach** field on a project that has no saved ReptClip state yet."

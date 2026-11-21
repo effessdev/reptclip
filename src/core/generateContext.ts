@@ -17,10 +17,10 @@ export async function generateContext(
 ): Promise<GenerateResult> {
   const allFiles = await collectNonIgnoredFiles(rootDir);
 
-  const includePatterns = tokenize(state.include);
+  const attachPatterns = tokenize(state.attach);
   const excludePatterns = tokenize(state.exclude);
-  const includedFiles = state.files
-    ? selectFiles(allFiles, includePatterns, excludePatterns)
+  const attachedFiles = state.files
+    ? selectFiles(allFiles, attachPatterns, excludePatterns)
     : [];
 
   const lineCounts =
@@ -37,7 +37,7 @@ export async function generateContext(
       includePromptTail: state.promptTail,
       lineCounts,
     },
-    includedFiles,
+    attachedFiles,
     allFiles,
   );
 }
@@ -94,12 +94,12 @@ export async function moreFiles(
     );
   }
 
-  const includedFiles = parsePathList(pathList);
+  const attachedFiles = parsePathList(pathList);
 
   // Validate before touching the clipboard/output: if any listed path can't be
   // embedded (missing, a directory, ignored by `.gitignore`, outside the root),
   // abort and report each one with its reason.
-  const rejected = await findRejectedPaths(rootDir, includedFiles);
+  const rejected = await findRejectedPaths(rootDir, attachedFiles);
   if (rejected.length > 0) {
     const detail = rejected.map((r) => `${r.path} (${r.reason})`).join(", ");
     throw new Error(`Cannot embed: ${detail}`);
@@ -113,7 +113,7 @@ export async function moreFiles(
       includeFiles: true,
       includePromptTail: false,
     },
-    includedFiles,
+    attachedFiles,
     [],
   );
 }
@@ -188,12 +188,12 @@ interface SectionOptions {
 async function buildContext(
   rootDir: string,
   options: SectionOptions,
-  includedFiles: string[],
+  attachedFiles: string[],
   allFiles: string[],
 ): Promise<GenerateResult> {
   const guard = createEmbeddingGuard(rootDir);
   const fileContents: Record<string, string> = {};
-  for (const relPath of includedFiles) {
+  for (const relPath of attachedFiles) {
     const verdict = await guard(relPath);
     if (!verdict.ok) {
       fileContents[relPath] = `[Skipped: ${verdict.reason}]`;
@@ -215,7 +215,7 @@ async function buildContext(
 
   const markdown = buildMarkdown({
     allFiles,
-    includedFiles,
+    attachedFiles: attachedFiles,
     fileContents,
     includeStructure: options.includeStructure,
     includeDiffFormat: options.includeDiffFormat,
@@ -224,5 +224,9 @@ async function buildContext(
     lineCounts: options.lineCounts,
   });
 
-  return { markdown, allFiles, includedFiles };
+  return {
+    markdown,
+    allFiles,
+    attachedFiles,
+  };
 }

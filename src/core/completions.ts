@@ -112,7 +112,7 @@ function rankCandidate(entry: CandidateEntry, query: string): number {
 }
 
 /**
- * Builds the full set of completion candidates for the include/exclude boxes:
+ * Builds the full set of completion candidates for the attach/exclude boxes:
  * every non-gitignored file path plus every parent directory (with a trailing
  * slash so the webview can offer folder navigation). All paths are relative to
  * `rootDir` and posix-style, matching what `generateContext` ultimately matches
@@ -139,8 +139,8 @@ export async function collectCandidates(rootDir: string): Promise<string[]> {
  * fuzzy subsequence anywhere in the path — so typing `clipboard.ts` surfaces
  * `src/core/clipboard.ts` without knowing its directory. Returns at most
  * `limit` matches, ties broken alphabetically (input is pre-sorted and
- * Array#sort is stable). An empty prefix yields no results on purpose —
- * suggestions only appear once the user has started typing a token.
+ * Array#sort is stable). An empty prefix yields no results on purpose.
+ * Suggestions only appear once the user has started typing a token.
  */
 export function filterCandidates(
   candidates: string[],

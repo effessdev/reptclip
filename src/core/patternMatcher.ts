@@ -2,7 +2,7 @@ import micromatch from "micromatch";
 
 /**
  * Given every non-gitignored file (relative, posix-style paths) and a set
- * of include/exclude patterns, returns the files that should be embedded
+ * of attach/exclude patterns, returns the files that should be embedded
  * in the generated Markdown. Include patterns are applied first, then
  * exclude patterns narrow that result — matching the original CLI's
  * documented precedence.
@@ -14,14 +14,14 @@ import micromatch from "micromatch";
  */
 export function selectFiles(
   allFiles: string[],
-  includePatterns: string[],
+  attachPatterns: string[],
   excludePatterns: string[],
 ): string[] {
-  if (includePatterns.length === 0) {
+  if (attachPatterns.length === 0) {
     return [];
   }
 
-  const matchesPerPattern = includePatterns.map((pattern) =>
+  const matchesPerPattern = attachPatterns.map((pattern) =>
     micromatch(allFiles, [pattern], { dot: true, nocase: false }).sort(),
   );
 
@@ -53,7 +53,7 @@ export function selectFiles(
 
 /**
  * Whether a single pattern matches at least one of the given files. Used by
- * the panel to color each include/exclude token (green = hits something,
+ * the panel to color each attach/exclude token (green = hits something,
  * yellow = matches nothing). Applies the same micromatch options as
  * `selectFiles` so the highlighting never disagrees with an actual run.
  */

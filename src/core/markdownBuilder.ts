@@ -1,6 +1,6 @@
 export interface BuildMarkdownInput {
   allFiles: string[];
-  includedFiles: string[];
+  attachedFiles: string[];
   fileContents: Record<string, string>;
   includeStructure: boolean;
   includeDiffFormat: boolean;
@@ -29,8 +29,8 @@ import AI_INSTRUCTIONS_SECTION from "./ai-instructions.md";
  * Produces the same overall shape as the original CLI's output:
  *   # Project structure   (optional, full non-ignored tree)
  *   ## AI instructions    (optional, Search/Replace instructions)
- *   # Files               (optional, one section containing included files)
- *     ## <path>           (one subsection per included file)
+ *   # Files               (optional, one section containing attached files)
+ *     ## <path>           (one subsection per attached file)
  *   # Prompt              (optional tail)
  */
 export function buildMarkdown(input: BuildMarkdownInput): string {
@@ -54,7 +54,7 @@ export function buildMarkdown(input: BuildMarkdownInput): string {
   }
 
   if (input.includeFiles) {
-    const fileSections = input.includedFiles.map((file) => {
+    const fileSections = input.attachedFiles.map((file) => {
       const content = input.fileContents[file] ?? "";
       return `## ${file}\n\n\`\`\`\n${content}\n\`\`\``;
     });

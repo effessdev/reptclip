@@ -4,10 +4,10 @@
   const vscode = acquireVsCodeApi();
 
   const els = {
-    include: document.getElementById("include"),
+    attach: document.getElementById("attach"),
     exclude: document.getElementById("exclude"),
     patternPair: document.getElementById("pattern-pair"),
-    includeSection: document.getElementById("include-section"),
+    attachSection: document.getElementById("attach-section"),
     excludeSection: document.getElementById("exclude-section"),
     clipboard: document.getElementById("clipboard"),
     structure: document.getElementById("structure"),
@@ -23,12 +23,12 @@
     status: document.getElementById("status"),
     warning: document.getElementById("warning"),
     suggest: document.getElementById("suggest"),
-    includeBackdrop: document.getElementById("include-backdrop"),
+    attachBackdrop: document.getElementById("attach-backdrop"),
     excludeBackdrop: document.getElementById("exclude-backdrop"),
   };
 
-  // The include/exclude boxes drive autocomplete; the output box does not.
-  const patternFields = [els.include, els.exclude];
+  // The attach/exclude boxes drive autocomplete; the output box does not.
+  const patternFields = [els.attach, els.exclude];
 
   // --- Token highlighting -------------------------------------------------
   // Textareas can't color individual tokens, so a read-only "backdrop" div
@@ -37,8 +37,8 @@
   // when it matches at least one file, yellow when it matches none.
   const editors = new Map([
     [
-      els.include,
-      { key: "include", input: els.include, backdrop: els.includeBackdrop },
+      els.attach,
+      { key: "attach", input: els.attach, backdrop: els.attachBackdrop },
     ],
     [
       els.exclude,
@@ -48,7 +48,7 @@
 
   const highlightState = {
     requestId: 0,
-    flags: { include: [], exclude: [] },
+    flags: { attach: [], exclude: [] },
   };
 
   function escapeHtml(s) {
@@ -130,7 +130,7 @@
     vscode.postMessage({
       type: "highlight",
       requestId,
-      include: els.include.value,
+      attach: els.attach.value,
       exclude: els.exclude.value,
     });
   }
@@ -146,7 +146,7 @@
 
   function currentState() {
     return {
-      include: els.include.value,
+      attach: els.attach.value,
       exclude: els.exclude.value,
       clipboard: els.clipboard.checked,
       projectStructure: els.structure.checked,
@@ -187,26 +187,26 @@
   }
 
   function syncPatternFieldHeights() {
-    if (!els.include || !els.exclude) {
+    if (!els.attach || !els.exclude) {
       return;
     }
 
-    els.include.style.height = "auto";
+    els.attach.style.height = "auto";
     els.exclude.style.height = "auto";
 
     if (isSideBySideLayout()) {
       const sharedHeight = Math.max(
-        getPatternFieldMinHeight(els.include),
-        els.include.scrollHeight,
+        getPatternFieldMinHeight(els.attach),
+        els.attach.scrollHeight,
         getPatternFieldMinHeight(els.exclude),
         els.exclude.scrollHeight,
       );
-      els.include.style.height = `${sharedHeight}px`;
+      els.attach.style.height = `${sharedHeight}px`;
       els.exclude.style.height = `${sharedHeight}px`;
       return;
     }
 
-    resizePatternField(els.include);
+    resizePatternField(els.attach);
     resizePatternField(els.exclude);
   }
 
@@ -240,7 +240,7 @@
   function updateFileControlsVisibility() {
     const shouldShow = els.files.checked;
     els.patternPair.hidden = !shouldShow;
-    els.includeSection.hidden = !shouldShow;
+    els.attachSection.hidden = !shouldShow;
     els.excludeSection.hidden = !shouldShow;
   }
 
@@ -459,11 +459,9 @@
         acceptSuggestion();
         return;
       }
-      if (event.key === "Escape") {
-        if (open) {
-          event.preventDefault();
-          hideSuggestions();
-        }
+      if (open && event.key === "Escape") {
+        event.preventDefault();
+        hideSuggestions();
         return;
       }
 
@@ -556,7 +554,7 @@
 
     if (message.type === "init") {
       const s = message.state;
-      els.include.value = s.include ?? "";
+      els.attach.value = s.attach ?? "";
       els.exclude.value = s.exclude ?? "";
       els.clipboard.checked = !!s.clipboard;
       els.structure.checked = !!s.projectStructure;
@@ -581,7 +579,7 @@
 
     if (message.type === "highlightResult") {
       if (message.requestId === highlightState.requestId) {
-        highlightState.flags.include = message.include ?? [];
+        highlightState.flags.attach = message.attach ?? [];
         highlightState.flags.exclude = message.exclude ?? [];
         editors.forEach(renderBackdrop);
       }

@@ -195,7 +195,7 @@ test("moreContext runs valid cat command and returns markdown", async () => {
   assert.equal(result.commandCount, 1);
   assert.equal(result.searchCount, 0);
   assert.equal(result.searchResultCount, 0);
-  assert.deepEqual(result.includedFiles, ["example.ts"]);
+  assert.deepEqual(result.attachedFiles, ["example.ts"]);
   assert.ok(result.markdown.startsWith("# Files\n\n"));
   assert.ok(result.markdown.includes("## example.ts"));
   assert.ok(result.markdown.includes("console.log('hello');"));
@@ -216,7 +216,7 @@ test("moreContext runs valid grep command and returns markdown", async () => {
   assert.equal(result.commandCount, 1);
   assert.equal(result.searchCount, 1);
   assert.equal(result.searchResultCount, 1);
-  assert.deepEqual(result.includedFiles, []);
+  assert.deepEqual(result.attachedFiles, []);
   assert.ok(result.markdown.startsWith("# Files\n\n"));
   assert.ok(result.markdown.includes("## grep TODO example.ts"));
   assert.ok(result.markdown.includes("TODO: fix this"));
@@ -231,7 +231,7 @@ test("moreContext runs read-lines command and returns the requested range", asyn
 
   const result = await moreContext(rootDir, "read-lines example.ts 2 4");
   assert.equal(result.commandCount, 1);
-  assert.deepEqual(result.includedFiles, ["example.ts"]);
+  assert.deepEqual(result.attachedFiles, ["example.ts"]);
   assert.ok(result.markdown.includes("## read-lines example.ts 2 4"));
   assert.ok(result.markdown.includes("line2\nline3\nline4"));
   assert.ok(!result.markdown.includes("line1"));

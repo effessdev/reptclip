@@ -82,13 +82,19 @@ body {
   margin-bottom: 0;
 }
 
-.pattern-column--include {
+.pattern-column--attach {
   flex-basis: calc(var(--pattern-split) - 4px);
   max-width: calc(var(--pattern-split) - 4px);
 }
 
 .pattern-column--exclude {
   flex-basis: calc(100% - var(--pattern-split) - 4px);
+}
+
+/* CSS attachment column styling is independent of the opposite exclude column. */
+.pattern-column--attach {
+  flex-basis: calc(var(--pattern-split) - 4px);
+  max-width: calc(var(--pattern-split) - 4px);
 }
 
 .pattern-divider {
@@ -157,7 +163,7 @@ input[type="text"]:focus {
   }
 
   .pattern-column,
-  .pattern-column--include,
+  .pattern-column--attach,
   .pattern-column--exclude {
     flex-basis: auto;
     max-width: none;
@@ -169,7 +175,7 @@ input[type="text"]:focus {
   }
 }
 
-/* Token highlighting for the include/exclude boxes. The backdrop mirrors the
+/* Token highlighting for the attach/exclude boxes. The backdrop mirrors the
    textarea's text with a colored span per token; the textarea text is made
    transparent so only the backdrop shows, while the textarea still handles
    editing/caret/selection. The shared metrics rule keeps the two layers
@@ -401,7 +407,7 @@ button#redoBtn:disabled {
   opacity: 1;
 }
 
-/* Autocomplete dropdown for the include/exclude boxes. Absolutely positioned
+/* Autocomplete dropdown for the attach/exclude boxes. Absolutely positioned
    relative to the document; main.js anchors it under the active textarea. */
 .suggest {
   position: absolute;

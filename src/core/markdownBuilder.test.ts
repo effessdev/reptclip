@@ -15,7 +15,7 @@ const { buildMarkdown } =
 test("buildMarkdown omits file sections when includeFiles is false", () => {
   const markdown = buildMarkdown({
     allFiles: ["src/a.ts", "src/b.ts"],
-    includedFiles: ["src/a.ts"],
+    attachedFiles: ["src/a.ts"],
     fileContents: { "src/a.ts": "const value = 1;" },
     includeStructure: true,
     includeDiffFormat: false,
@@ -31,7 +31,7 @@ test("buildMarkdown omits file sections when includeFiles is false", () => {
 test("buildMarkdown includes the enabled sections and omits the disabled ones", () => {
   const markdown = buildMarkdown({
     allFiles: ["src/a.ts", "src/b.ts"],
-    includedFiles: ["src/a.ts"],
+    attachedFiles: ["src/a.ts"],
     fileContents: { "src/a.ts": "const value = 1;" },
     includeStructure: true,
     includeDiffFormat: true,
@@ -47,7 +47,7 @@ test("buildMarkdown includes the enabled sections and omits the disabled ones", 
 
   const trimmed = buildMarkdown({
     allFiles: ["src/a.ts"],
-    includedFiles: ["src/a.ts"],
+    attachedFiles: ["src/a.ts"],
     fileContents: { "src/a.ts": "const value = 1;" },
     includeStructure: false,
     includeDiffFormat: false,
@@ -65,7 +65,7 @@ test("buildMarkdown includes the enabled sections and omits the disabled ones", 
 test("buildMarkdown shows a message when no files are attached", () => {
   const markdown = buildMarkdown({
     allFiles: ["src/a.ts"],
-    includedFiles: [],
+    attachedFiles: [],
     fileContents: {},
     includeStructure: false,
     includeDiffFormat: false,
@@ -79,7 +79,7 @@ test("buildMarkdown shows a message when no files are attached", () => {
 test("buildMarkdown appends per-file line counts and the explanation when lineCounts is provided", () => {
   const markdown = buildMarkdown({
     allFiles: ["src/a.ts", "src/b.bin"],
-    includedFiles: [],
+    attachedFiles: [],
     fileContents: {},
     includeStructure: true,
     includeDiffFormat: false,
@@ -97,7 +97,7 @@ test("buildMarkdown appends per-file line counts and the explanation when lineCo
 test("buildMarkdown omits line counts and the explanation when lineCounts is not provided", () => {
   const markdown = buildMarkdown({
     allFiles: ["src/a.ts"],
-    includedFiles: [],
+    attachedFiles: [],
     fileContents: {},
     includeStructure: true,
     includeDiffFormat: false,

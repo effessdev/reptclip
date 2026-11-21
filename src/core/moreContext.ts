@@ -624,7 +624,7 @@ export async function moreContext(
   const validated = await validateCommands(rootDir, commands);
   const guard = createEmbeddingGuard(rootDir);
   const sections: string[] = [];
-  const includedFiles: string[] = [];
+  const attachedFiles: string[] = [];
   let searchCount = 0;
   let searchResultCount = 0;
   for (const command of validated) {
@@ -637,7 +637,7 @@ export async function moreContext(
             ? `[${result.reason}]`
             : (result.content ?? "");
       sections.push(renderSection(command.relPath, content));
-      includedFiles.push(command.relPath);
+      attachedFiles.push(command.relPath);
     } else if (command.kind === "readLines") {
       const result = await readFileSafe(command.absPath).catch(() => undefined);
       const content =
@@ -651,7 +651,7 @@ export async function moreContext(
                 command.endLine,
               );
       sections.push(renderSection(command.line, content));
-      includedFiles.push(command.relPath);
+      attachedFiles.push(command.relPath);
     } else {
       const result = await runGrep(
         rootDir,
@@ -667,7 +667,7 @@ export async function moreContext(
   return {
     markdown: `# Files\n\n` + sections.join("\n\n") + "\n",
     allFiles: [],
-    includedFiles,
+    attachedFiles,
     commandCount: validated.length,
     searchCount,
     searchResultCount,

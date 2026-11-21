@@ -52,12 +52,12 @@ export function getHtml(
     </section>
 
     <div id="pattern-pair" class="pattern-pair">
-      <section id="include-section" class="section pattern-column pattern-column--include">
-        <label for="include">Files to attach (separated by spaces, glob patterns supported)</label>
+      <section id="attach-section" class="section pattern-column pattern-column--attach">
+        <label for="attach">Files to attach (separated by spaces, glob patterns supported)</label>
         <div class="pattern-editor">
-          <div id="include-backdrop" class="pattern-backdrop" aria-hidden="true"></div>
+          <div id="attach-backdrop" class="pattern-backdrop" aria-hidden="true"></div>
           <textarea
-            id="include"
+            id="attach"
             rows="2"
             spellcheck="false"
             placeholder='AGENTS.md src/**/*.py "name with space.md"'
@@ -65,10 +65,10 @@ export function getHtml(
         </div>
       </section>
 
-      <div class="pattern-divider" aria-hidden="true" title="Drag to resize include/exclude columns"></div>
+      <div class="pattern-divider" aria-hidden="true" title="Drag to resize attach/exclude columns"></div>
 
       <section id="exclude-section" class="section pattern-column pattern-column--exclude">
-        <label for="exclude">Files to exclude from attatched files</label>
+        <label for="exclude">Files to exclude from attached files</label>
         <div class="pattern-editor">
           <div id="exclude-backdrop" class="pattern-backdrop" aria-hidden="true"></div>
           <textarea

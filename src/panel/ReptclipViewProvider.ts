@@ -52,7 +52,7 @@ export class ReptclipViewProvider implements vscode.WebviewViewProvider {
   /** Last highlight evaluation, replayed whenever the file list changes. */
   private lastHighlight?: {
     requestId: number;
-    include: string;
+    attach: string;
     exclude: string;
   };
 
@@ -93,11 +93,11 @@ export class ReptclipViewProvider implements vscode.WebviewViewProvider {
       canRedo: !!rootDir && (this.redoStacks.get(rootDir)?.length ?? 0) > 0,
     });
 
-    // Computes match flags for every include/exclude token against the current
+    // Computes match flags for every attach/exclude token against the current
     // file list. Shared by the live request and the filesystem watcher below.
     const evaluateHighlight = async (
       requestId: number,
-      include: string,
+      attach: string,
       exclude: string,
     ) => {
       if (!rootDir) {
@@ -108,7 +108,7 @@ export class ReptclipViewProvider implements vscode.WebviewViewProvider {
       post({
         type: "highlightResult",
         requestId,
-        include: tokenize(include).map((p) => matchesAnyFile(files, p)),
+        attach: tokenize(attach).map((p) => matchesAnyFile(files, p)),
         exclude: tokenize(exclude).map((p) => matchesAnyFile(files, p)),
       });
     };
@@ -131,7 +131,7 @@ export class ReptclipViewProvider implements vscode.WebviewViewProvider {
           if (this.lastHighlight) {
             void evaluateHighlight(
               this.lastHighlight.requestId,
-              this.lastHighlight.include,
+              this.lastHighlight.attach,
               this.lastHighlight.exclude,
             );
           }
@@ -200,12 +200,12 @@ export class ReptclipViewProvider implements vscode.WebviewViewProvider {
             }
             this.lastHighlight = {
               requestId: message.requestId,
-              include: message.include,
+              attach: message.attach,
               exclude: message.exclude,
             };
             await evaluateHighlight(
               message.requestId,
-              message.include,
+              message.attach,
               message.exclude,
             );
             return;
@@ -247,7 +247,7 @@ export class ReptclipViewProvider implements vscode.WebviewViewProvider {
               post({
                 type: "runResult",
                 ok: true,
-                fileCount: result.includedFiles.length,
+                fileCount: result.attachedFiles.length,
                 copiedToClipboard: message.state.clipboard,
                 writtenToFile: message.state.outputFile.trim().length > 0,
               });
@@ -294,7 +294,7 @@ export class ReptclipViewProvider implements vscode.WebviewViewProvider {
               post({
                 type: "runResult",
                 ok: true,
-                fileCount: result.includedFiles.length,
+                fileCount: result.attachedFiles.length,
                 copiedToClipboard: message.state.clipboard,
                 writtenToFile: message.state.outputFile.trim().length > 0,
                 searchCount: result.searchCount,

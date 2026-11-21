@@ -46,7 +46,7 @@ export function getConfiguredDefaultUiState(): UiState {
   const defaults = defaultUiState();
   return {
     ...defaults,
-    include: config.get<string>("defaultInclude", defaults.include),
+    attach: config.get<string>("defaultAttach", defaults.attach),
     exclude: config.get<string>("defaultExclude", defaults.exclude),
     clipboard: config.get<boolean>("defaultClipboard", defaults.clipboard),
     projectStructure: config.get<boolean>(

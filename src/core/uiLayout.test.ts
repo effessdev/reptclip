@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-test("panel keeps include/exclude inputs in a responsive split layout", () => {
+test("panel keeps attach/exclude inputs in a responsive split layout", () => {
   const repoRoot = resolve(__dirname, "..", "..");
   const html = readFileSync(
     resolve(repoRoot, "src", "panel", "getHtml.ts"),

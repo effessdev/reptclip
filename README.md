@@ -27,12 +27,12 @@ It contains the following sections:
 
 - **Text boxes:**
   - **Files to attach:** Specify which files you want to include in the context. Enter relative file paths or glob patterns to match multiple files. Syntax highlighting and suggestions are supported!
-  - **Files to exclude:** Specify which files to exclude from the included files.
+  - **Files to exclude:** Specify which files to exclude from the attached files.
   - **Output file:** Empty by default. If you provide a relative or absolute path, the context will also be written to that file.
 
 - **Buttons:**
   - **Context:** Clicking this button copies the context to your clipboard.
-  - **More context:** We'll discuss this later 🙂
+  - **More context:** We'll discuss this later 🙂‚
   - **Apply Diffs:** Reads the diffs from your clipboard and applies them.
   - **Button with a counterclockwise arrow icon:** Undoes the last diff (supports up to the last 10 diffs).
   - **Button with a clockwise arrow icon:** Redoes the last undone diff.
@@ -41,11 +41,11 @@ The empty space between the **Apply Diffs** button and the undo button is used t
 
 ### Step 1: Copy context to clipboard
 
-The context consists of the **Project structure**, **AI instructions**, and **attatched files**. All in Markdown. [See example context](#preparing-context)
+The context consists of the **Project structure**, **AI instructions**, and **attached files**. All in Markdown. [See example context](#preparing-context)
 
-Use "Files to attach" text box to attatch files to the context. You can use relative paths or glob patterns (e.g., `src/**/*.py` to add all Python files in `src`). You will get **live suggestions** and **syntax highlighting** as you type. Press "Enter" or click the "Context" button to copy the context **straight to your clipboard**.
+Use "Files to attach" text box to attach files to the context. You can use relative paths or glob patterns (e.g., `src/**/*.py` to add all Python files in `src`). You will get **live suggestions** and **syntax highlighting** as you type. Press "Enter" or click the "Context" button to copy the context **straight to your clipboard**.
 
-If no files are selected, ReptClip shows **“No files attached.”** and keeps the remaining enabled context sections.
+If no files are selected, ReptClip shows "No files attached." and keeps the remaining enabled context sections.
 
 ### Step 2: Paste context to your chatbot, along with your prompt
 
@@ -85,12 +85,12 @@ The generated context has the following sections (**each one can be toggled ON o
 
 - **Project structure:** lists the relative paths to all files in the project that have not been ignored using `.gitignore`, with their line count.
 - **AI instructions:** contains the instructions regarding how to generate the output.
-- **Files:** the files you attatched (specified in "Files to attach" text box).
+- **Files:** the files you attached (specified in "Files to attach" text box).
 - **Prompt section:** an empty `# Prompt\n\n` section to type in your prompt.
 
-You can attatch files in the context by either entering the relative paths of them or a matching glob pattern in the **Files to attach** text box, separated by spaces. Mid-conversation context additions are handled by the **More Context** button (see [Adding more context](#adding-more-context-the-more-context-button)).
+You can attach files in the context by either entering the relative paths of them or a matching glob pattern in the **Files to attach** text box, separated by spaces. Mid-conversation context additions are handled by the **More Context** button (see [Adding more context](#adding-more-context-the-more-context-button)).
 
-Example generated context when all sections are enabled and only `AGENTS.md` is attatched:
+Example generated context when all sections are enabled and only `AGENTS.md` is attached:
 
 ````markdown
 # Project structure
@@ -129,7 +129,7 @@ You can uncheck "Copy to clipboard" to turn it off.
 
 #### Live suggestions and syntax highlighting
 
-A relative path or a glob pattern in "Files to attach" will turn **green** if they match at least one file, and turn **yellow** if they math no files. For "Files to exclude", green means it matches **at least one included file**.
+A relative path or a glob pattern in "Files to attach" will turn **green** if they match at least one file, and turn **yellow** if they math no files. For "Files to exclude", green means it matches **at least one attached file**.
 
 #### Order is preserved
 
@@ -140,7 +140,7 @@ Example:
 - **Files to attach:** `AGENTS.md **/*.py src/main.py`
 - **Files to exclude:** `src/secret.py src/**/*.py`
 
-This will attatch `AGENTS.md` and all Python files, but exclude `src/secret.py` and all Python files in `tests`, and put `src/main.py` last:
+This will attach `AGENTS.md` and all Python files, but exclude `src/secret.py` and all Python files in `tests`, and put `src/main.py` last:
 
 #### Safety measures for context
 
@@ -148,7 +148,7 @@ This will attatch `AGENTS.md` and all Python files, but exclude `src/secret.py` 
 
 - **`.gitignore` is a noise filter, not a secret filter.** A `.env` or key file that is not listed there is embedded verbatim and ends up in the chatbot and on the clipboard. Keep secrets ignored, or name them in **Files to exclude**.
 
-- **Oversized and binary files are skipped automatically**, replaced by a descriptive placeholder in the output (limit: 1 MB; binaries detected via NUL-byte sniffing), they still appear in the project structure listing — without a line count, since the same limit and binary check decide whether one can be shown.
+- **Oversized and binary files are skipped automatically**, replaced by a descriptive placeholder in the output (limit: 1 MB; binaries detected via NUL-byte sniffing), they still appear in the project structure listing without a line count, since the same limit and binary check decide whether one can be shown.
 
 - **There is no second implementation for "More Context" to worry about.** Its commands come from the clipboard instead of the pattern textareas, but `cat` paths are checked and read through the exact same pipeline as the Context button: same `.gitignore` enforcement, same size/binary guards, same Markdown builder. `grep` runs in-process via [grepts](https://github.com/ahmadawais/grepts) with `.gitignore` respect forced on (`--no-ignore` is refused), and every matched file is re-checked through the same embedding guard before any of its lines are embedded. The only difference is what gets wrapped around the results: More Context emits the requested file and search sections alone, no project structure, "AI instructions", or "Prompt" sections, so a mid-conversation supplement pastes cleanly on top of what the chatbot already has.
 
@@ -194,7 +194,7 @@ Your chatbot can:
 
 ### Undo and redo applied diffs
 
-Next to the status message, **Undo** and **Redo** buttons step backward and forward through your last 10 applied diffs (each "Apply Diffs" click counts as one checkpoint). Undo restores every file touched by that diff to its exact pre-apply state — including recreating a file the diff deleted, or deleting one it created — and Redo reverses that. Both buttons are greyed out when there's nothing to step to. This history is kept in memory for the current VS Code session, separately from your regular per-file `Ctrl + Z` undo, and from the single remembered "already applied" fingerprint used to warn against re-applying the same diff.
+Next to the status message, **Undo** and **Redo** buttons step backward and forward through your last 10 applied diffs (each "Apply Diffs" click counts as one checkpoint). Undo restores every file touched by that diff to its exact pre-apply state, including recreating a file the diff deleted, or deleting one it created, and Redo reverses that. Both buttons are greyed out when there's nothing to step to. This history is kept in memory for the current VS Code session, separately from your regular per-file `Ctrl + Z` undo, and from the single remembered "already applied" fingerprint used to warn against re-applying the same diff.
 
 Undo displays a warning if the file has been modified, checking both the saved file on disk and any unsaved changes in the editor.
 
@@ -204,9 +204,9 @@ Paste-ready command blocks don't come only from you. The "AI instructions" secti
 
 Each non-empty line is one command, and the results appear in the order you pasted:
 
-- **`cat <path>`** reads a file, e.g. `cat src/main.py` or `cat "docs/my file.md"`. Paths are quote-aware, but each `cat` takes exactly one path — `cat this fails` is an error, not two files.
+- **`cat <path>`** reads a file, e.g. `cat src/main.py` or `cat "docs/my file.md"`. Paths are quote-aware, but each `cat` takes exactly one path. `cat this fails` is an error, not two files.
 - **`grep <flags> <pattern> [paths...]`** searches file contents using [grepts](https://github.com/ahmadawais/grepts), a TypeScript grep that runs in-process (no subprocess). Without paths it searches the whole project; with paths it searches only those files and directories.
-- **`read-lines <path> <start_line> [end_line]`** reads a 1-indexed, inclusive range of lines from a file, e.g. `read-lines src/main.py 10 25`. `end_line` is optional — omit it to read to the end of the file — and if it's higher than the file's total line count, the range is simply clamped to the end of the file instead of erroring.
+- **`read-lines <path> <start_line> [end_line]`** reads a 1-indexed, inclusive range of lines from a file, e.g. `read-lines src/main.py 10 25`. `end_line` is optional. Omit it to read to the end of the file. If it's higher than the file's total line count, the range is simply clamped to the end of the file instead of erroring.
 
 For example, this clipboard block:
 
@@ -236,7 +236,7 @@ src/util.py:3:# TODO rename
 
 Here's what actually happens, in order:
 
-1. **Parsing is line-by-line and forgiving where it should be, strict where it must be.** Each line is trimmed and split into quote-aware tokens, and empty lines (including runs of consecutive newlines) are skipped. The first token must be `cat`, `grep`, or `read-lines` — anything else is an error.
+1. **Parsing is line-by-line and forgiving where it should be, strict where it must be.** Each line is trimmed and split into quote-aware tokens, and empty lines (including runs of consecutive newlines) are skipped. The first token must be `cat`, `grep`, or `read-lines`. Anything else is an error.
 2. **Pre-flight validation, all-or-nothing.** Before anything runs, every command is checked. `cat` and `read-lines` paths clear the embedding guard and are `fs.stat`-ed against the workspace root: not found, a directory rather than a file, ignored by `.gitignore`, inside `.git`, absolute, or resolving outside the project root all fail the check; `read-lines` additionally fails if `start_line` is past the file's actual line count. `grep` commands are parsed and validated up front too: invalid patterns, paths that fail the same checks, and unsupported flags all fail the check. Nothing is copied, nothing is written, no half-baked context reaches your clipboard; instead the panel names each offender and why. You fix the block and click again.
 3. **Only then does it build.** `cat` and `read-lines` files are read through the shared pipeline (1 MB limit, binary detection, descriptive placeholders); `read-lines` then slices out the requested 1-indexed, inclusive line range (clamping `end_line` to the file's last line, or defaulting to it when omitted) before formatting. `grep` searches run in-process via grepts with `.gitignore` respect forced on, and matched files are re-checked through the embedding guard before their lines are embedded. The results are placed under `# Files`, with one `## <path>` (`cat`) or `## <the command as typed>` (`grep`, `read-lines`) subsection per command, and each subsection contains a code fence. The Project structure / AI instructions / Prompt section checkboxes are deliberately not applied, since those were already sent when you first generated the context.
 
@@ -276,7 +276,7 @@ Open VS Code's Settings (`Ctrl+,` / `Cmd+,`) and search for **"ReptClip"** to co
 
 | Setting                             | Default | Description                                                              |
 | ----------------------------------- | ------- | ------------------------------------------------------------------------ |
-| `reptclip.defaultInclude`           | `""`    | Default value for the **Files to attach** field.                         |
+| `reptclip.defaultAttach`            | `""`    | Default value for the **Files to attach** field.                         |
 | `reptclip.defaultExclude`           | `""`    | Default value for the **Files to exclude** field.                        |
 | `reptclip.defaultClipboard`         | `true`  | Whether **Copy to clipboard** is checked by default.                     |
 | `reptclip.defaultProjectStructure`  | `true`  | Whether the **Project structure** section is checked by default.         |

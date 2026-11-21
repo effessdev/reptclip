@@ -3,7 +3,8 @@
  * persisted per-project and sent back and forth to the webview.
  */
 export interface UiState {
-  include: string;
+  /** Current file attachment patterns. */
+  attach: string;
   exclude: string;
   clipboard: boolean;
   projectStructure: boolean;
@@ -15,7 +16,7 @@ export interface UiState {
 
 export function defaultUiState(): UiState {
   return {
-    include: "",
+    attach: "",
     exclude: "",
     clipboard: true,
     projectStructure: true,
@@ -29,7 +30,7 @@ export function defaultUiState(): UiState {
 export interface GenerateResult {
   markdown: string;
   allFiles: string[];
-  includedFiles: string[];
+  attachedFiles: string[];
 }
 
 /** Messages sent from the extension host to the webview. */
@@ -82,7 +83,7 @@ export type HostToWebviewMessage =
   | {
       type: "highlightResult";
       requestId: number;
-      include: boolean[];
+      attach: boolean[];
       exclude: boolean[];
     };
 
@@ -95,4 +96,4 @@ export type WebviewToHostMessage =
   | { type: "undo" }
   | { type: "redo" }
   | { type: "suggest"; requestId: number; prefix: string }
-  | { type: "highlight"; requestId: number; include: string; exclude: string };
+  | { type: "highlight"; requestId: number; attach: string; exclude: string };
