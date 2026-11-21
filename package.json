@@ -96,11 +96,6 @@
           "default": "",
           "markdownDescription": "Default value for the **Output file** field on a project that has no saved ReptClip state yet."
         },
-        "reptclip.allowProtectedFileWrites": {
-          "type": "boolean",
-          "default": false,
-          "markdownDescription": "Allow applying diffs that write paths ReptClip refuses by default: anything inside `.git` (git executes content from there) and `.env` / `.env.*` files. When enabled, each such apply asks for confirmation."
-        },
         "reptclip.showLineCounts": {
           "type": "boolean",
           "default": true,
