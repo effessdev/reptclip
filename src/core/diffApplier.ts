@@ -71,8 +71,6 @@ export interface ApplyOptions {
    * document changed while the diff was being resolved (TOCTOU).
    */
   assertBuffersCurrent?: () => void;
-  /** Resolve true to allow writing paths the diff normally refuses to touch. */
-  confirmProtectedPaths?: (paths: string[]) => Promise<boolean>;
   /**
    * Resolve true to apply a block whose REPLACE contains a `=======` line,
    * which usually means the SEARCH separator was swallowed by the parser.
@@ -119,29 +117,6 @@ async function hasDiskChanges(
 const SEARCH_MARKER = "<<<<<<< SEARCH";
 const SEPARATOR = "=======";
 const REPLACE_MARKER = ">>>>>>> REPLACE";
-
-/**
- * Paths whose write is refused unless the host confirms it. Two classes:
- *   - anything under `.git`: git executes content from there (hooks, aliases,
- *     `core.fsmonitor`), so a diff can become a command run on the next git call;
- *   - `.env` and `.env.*`: the diff comes from a chatbot, and swapping the
- *     project's environment file is a configuration change the user must see.
- *
- * NTFS alternate data streams are stripped before the comparison: `file.txt::$DATA`
- * is the same file, so `.env::$DATA` must not slip past the `.env` rule.
- */
-function isProtectedPath(relative: string): boolean {
-  const segments = relative.split(/[\\/]+/).filter(Boolean);
-  if (
-    segments.some((segment) => segment.split(":")[0].toLowerCase() === ".git")
-  ) {
-    return true;
-  }
-  const base = (segments[segments.length - 1] ?? "")
-    .split(":")[0]
-    .toLowerCase();
-  return base === ".env" || base.startsWith(".env.");
-}
 
 /**
  * Line-based state machine. Outside a block, every non-empty line is treated
@@ -647,19 +622,15 @@ export async function applyDiffs(
     | { absPath: string; realRelPath: string }
     | undefined
   )[] = [];
-  const protectedPaths = new Set<string>();
-  const ignoredPaths = new Set<string>();
+  const refusedPaths = new Map<string, string>();
   const isEmbeddable = createEmbeddingGuard(rootDir);
 
   for (const block of blocks) {
     const target = await resolveFile(rootDir, block.file);
     resolvedTargets.push(target);
-    if (isProtectedPath(block.file) || isProtectedPath(target.realRelPath)) {
-      protectedPaths.add(block.file);
-    }
     const verdict = await isEmbeddable(block.file);
-    if (!verdict.ok && verdict.reason === "ignored by .gitignore") {
-      ignoredPaths.add(block.file);
+    if (!verdict.ok) {
+      refusedPaths.set(block.file, verdict.reason ?? "not a trackable path");
     }
 
     if (block.kind === "move") {
@@ -668,43 +639,25 @@ export async function applyDiffs(
       }
       const destination = await resolveFile(rootDir, block.destination);
       resolvedDestinations.push(destination);
-      if (
-        isProtectedPath(block.destination!) ||
-        isProtectedPath(destination.realRelPath)
-      ) {
-        protectedPaths.add(block.destination!);
-      }
       const destVerdict = await isEmbeddable(block.destination!);
-      if (!destVerdict.ok && destVerdict.reason === "ignored by .gitignore") {
-        ignoredPaths.add(block.destination!);
+      if (!destVerdict.ok) {
+        refusedPaths.set(
+          block.destination!,
+          destVerdict.reason ?? "not a trackable path",
+        );
       }
     } else {
       resolvedDestinations.push(undefined);
     }
   }
 
-  if (protectedPaths.size > 0) {
-    const files = [...protectedPaths];
-    if (!options.confirmProtectedPaths) {
-      throw new Error(
-        `Refusing to write protected paths: ${files.join(", ")}. ` +
-          ".git content is executed by git and .env* changes the project configuration. " +
-          "Enable reptclip.allowProtectedFileWrites to confirm each apply.",
-      );
-    }
-    const confirmed = await options.confirmProtectedPaths(files);
-    if (!confirmed) {
-      throw new Error(
-        `Apply cancelled: protected paths were not confirmed (${files.join(", ")}).`,
-      );
-    }
-  }
-
-  if (ignoredPaths.size > 0) {
-    const files = [...ignoredPaths];
+  if (refusedPaths.size > 0) {
+    const details = [...refusedPaths.entries()]
+      .map(([file, reason]) => `${file} (${reason})`)
+      .join(", ");
     throw new Error(
-      `Refusing to write files ignored by .gitignore: ${files.join(", ")}. ` +
-        "Diffs can only touch tracked files — remove the matching .gitignore pattern first if you want ReptClip to manage them.",
+      `Refusing to write paths .gitignore excludes from context: ${details}. ` +
+        "Diffs can only touch tracked files — untrack them in .gitignore first if you want ReptClip to manage them.",
     );
   }
 
