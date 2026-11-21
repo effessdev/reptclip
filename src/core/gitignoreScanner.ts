@@ -14,6 +14,10 @@ interface IgnoreLevel {
   nonDir: Ignore;
 }
 
+// -----------------------------------------------------------------------------
+// .gitignore parsing
+// -----------------------------------------------------------------------------
+
 const ALWAYS_IGNORED_DIR_NAMES = new Set([".git"]);
 
 /** Builds a level, splitting directory patterns so a re-include can be scoped. */
@@ -47,6 +51,9 @@ function makeLevel(dir: string, content: string | null): IgnoreLevel {
   };
 }
 
+// -----------------------------------------------------------------------------
+// Public API
+// -----------------------------------------------------------------------------
 
 /**
  * Recursively walks `rootDir` and returns every file's path relative to
@@ -168,10 +175,7 @@ export function createEmbeddingGuard(
     if (realRel.some((segment) => ALWAYS_IGNORED_DIR_NAMES.has(segment))) {
       return { ok: false, reason: "inside .git, which is never embedded" };
     }
-    if (
-      realRel.length > 0 &&
-      realRel.join("/") !== segments.join("/")
-    ) {
+    if (realRel.length > 0 && realRel.join("/") !== segments.join("/")) {
       const realAbs = path.join(rootNorm, ...realRel);
       const realLevels = await levelsFor(path.dirname(realAbs));
       if (verdictOf(realAbs, false, realLevels) === "ignored") {
@@ -210,6 +214,10 @@ export function createEmbeddingGuard(
   };
 }
 
+// -----------------------------------------------------------------------------
+// Filesystem safety
+// -----------------------------------------------------------------------------
+
 /**
  * Resolves a path to what the filesystem will actually touch, rejecting a link
  * that leaves the project (including a dangling one) and reporting a canonical
@@ -238,9 +246,7 @@ async function resolveRealInside(
       }
     }
     if (real !== undefined) {
-      const resolved = trailing.length
-        ? path.resolve(real, ...trailing)
-        : real;
+      const resolved = trailing.length ? path.resolve(real, ...trailing) : real;
       const rel = path.relative(rootReal, resolved);
       const inside =
         rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
@@ -256,6 +262,10 @@ async function resolveRealInside(
     probe = parent;
   }
 }
+
+// -----------------------------------------------------------------------------
+// Directory traversal and ignore evaluation
+// -----------------------------------------------------------------------------
 
 async function walk(
   rootDir: string,
@@ -305,8 +315,7 @@ async function walk(
     if (entry.isDirectory()) {
       // A directory re-included by a deeper .gitignore re-includes its whole
       // subtree; shallower levels are then evaluated relative to it.
-      const childBase =
-        verdict === "unignored" ? fullPath : reincludeBase;
+      const childBase = verdict === "unignored" ? fullPath : reincludeBase;
       await walk(rootDir, fullPath, levelsForDir, results, childBase);
     } else if (entry.isFile()) {
       const relFromRoot = toPosixPath(path.relative(rootDir, fullPath));
@@ -317,6 +326,78 @@ async function walk(
 
 function isInsideDir(parent: string, child: string): boolean {
   return child === parent || child.startsWith(parent + path.sep);
+}
+
+/**
+ * Checks whether an ignore match is caused only by an ancestor directory
+ * that a deeper .gitignore has re-included.
+ *
+ * Independent exclusions below that directory still apply. In particular,
+ * `build/` + `!build/` + `build/private/` must continue to exclude `private/`.
+ */
+function isInheritedDirectoryExclusion(
+  level: IgnoreLevel,
+  fullPath: string,
+  isDirectory: boolean,
+  reincludeBase: string | undefined,
+): boolean {
+  if (
+    !reincludeBase ||
+    reincludeBase === level.dir ||
+    !isInsideDir(level.dir, reincludeBase)
+  ) {
+    return false;
+  }
+
+  const baseRel = toPosixPath(path.relative(level.dir, reincludeBase));
+  if (!baseRel) {
+    return false;
+  }
+
+  const relativePath = toPosixPath(path.relative(level.dir, fullPath));
+  const candidate = isDirectory ? `${relativePath}/` : relativePath;
+  const viaBaseDirectory = level.dirOnly.test(`${baseRel}/`).ignored;
+  const viaOtherPattern = level.nonDir.ignores(candidate);
+
+  // Test each directory rule separately to distinguish an inherited base
+  // exclusion from a rule that independently excludes a directory below it.
+  const baseRelDir = `${baseRel}/`;
+  const directoryRules = level.dirOnlyLines.map((line) => ({
+    ig: ignore().add(line),
+  }));
+  const matchesBase = directoryRules.some(
+    (rule) => rule.ig.test(baseRelDir).ignored,
+  );
+
+  const relativeSegments = path
+    .relative(reincludeBase, fullPath)
+    .split(path.sep)
+    .filter(Boolean);
+  const directoriesBelow = isDirectory
+    ? relativeSegments
+    : relativeSegments.slice(0, -1);
+
+  let subdirectory = reincludeBase;
+  for (const segment of directoriesBelow) {
+    subdirectory = path.join(subdirectory, segment);
+
+    const subRelDir = `${toPosixPath(path.relative(level.dir, subdirectory))}/`;
+    const suffixDir = `${toPosixPath(
+      path.relative(reincludeBase, subdirectory),
+    )}/`;
+
+    const independentlyExcluded = directoryRules.some(
+      (rule) =>
+        rule.ig.test(subRelDir).ignored &&
+        (!rule.ig.test(baseRelDir).ignored || rule.ig.test(suffixDir).ignored),
+    );
+
+    if (independentlyExcluded) {
+      return false;
+    }
+  }
+
+  return matchesBase && viaBaseDirectory && !viaOtherPattern;
 }
 
 /**
@@ -345,66 +426,14 @@ function verdictOf(
     const verdict = level.ig.test(isDirectory ? `${rel}/` : rel);
     if (verdict.ignored) {
       if (
-        reincludeBase &&
-        reincludeBase !== level.dir &&
-        isInsideDir(level.dir, reincludeBase)
+        isInheritedDirectoryExclusion(
+          level,
+          fullPath,
+          isDirectory,
+          reincludeBase,
+        )
       ) {
-        const baseRel = toPosixPath(path.relative(level.dir, reincludeBase));
-        if (baseRel) {
-          const viaBaseDirectory = level.dirOnly.test(`${baseRel}/`).ignored;
-          const viaOtherPattern = level.nonDir.ignores(
-            isDirectory ? `${rel}/` : rel,
-          );
-          // A directory exclusion below the re-included base is independent
-          // of the base pattern and must survive (`build/` + `!build/` +
-          // `build/private/` keeps private/ excluded). Rules that merely match
-          // the base directory are inherited exclusions, not separate rules.
-          const baseRelDir = `${baseRel}/`;
-          const dirRules = level.dirOnlyLines.map((line) => ({
-            ig: ignore().add(line),
-          }));
-          const matchesBase = dirRules.some(
-            (rule) => rule.ig.test(baseRelDir).ignored,
-          );
-          const relativeSegments = path
-            .relative(reincludeBase, fullPath)
-            .split(path.sep)
-            .filter(Boolean);
-          const directoriesBelow = isDirectory
-            ? relativeSegments
-            : relativeSegments.slice(0, -1);
-          let subdirectory = reincludeBase;
-          let deeperExclusion = false;
-          for (const segment of directoriesBelow) {
-            subdirectory = path.join(subdirectory, segment);
-            const subRelDir = `${toPosixPath(
-              path.relative(level.dir, subdirectory),
-            )}/`;
-            const suffixDir = `${toPosixPath(
-              path.relative(reincludeBase, subdirectory),
-            )}/`;
-            const independent = dirRules.some(
-              (rule) =>
-                rule.ig.test(subRelDir).ignored &&
-                (!rule.ig.test(baseRelDir).ignored ||
-                  rule.ig.test(suffixDir).ignored),
-            );
-            if (independent) {
-              deeperExclusion = true;
-              break;
-            }
-          }
-          if (
-            matchesBase &&
-            viaBaseDirectory &&
-            !viaOtherPattern &&
-            !deeperExclusion
-          ) {
-            // This level only ignores us because the ancestor directory was
-            // excluded, and a deeper .gitignore re-included that directory.
-            continue;
-          }
-        }
+        continue;
       }
       return "ignored";
     }
