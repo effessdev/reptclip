@@ -62,6 +62,7 @@ const fakeVscode = {
         const filePath = uri.fsPath;
 
         if (kind === "createFile") {
+          await fs.mkdir(path.dirname(filePath), { recursive: true });
           await fs.writeFile(filePath, "", "utf8");
           continue;
         }
@@ -903,7 +904,7 @@ test("E11 applies a .gitignore edit only when the confirmation resolves true", a
   assert.equal(result.modified, 1);
   assert.equal(
     await fs.readFile(path.join(root, ".gitignore"), "utf8"),
-    ".env\n*.log",
+    ".env\n*.log\n",
   );
 });
 
