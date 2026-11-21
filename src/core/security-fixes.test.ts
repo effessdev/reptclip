@@ -210,7 +210,7 @@ test("E1 refuses to follow a file link that points outside the workspace", async
 // E2 [C2] - the write path must honour the same protected paths as the read path.
 // ---------------------------------------------------------------------------
 
-test("E2 refuses to write .env and .git/hooks without an explicit confirmation", async () => {
+test("E2 refuses to write a gitignored .env and anything under .git", async () => {
   const root = await makeRoot("reptclip-e2-");
   await writeFile(root, ".gitignore", ".env\n");
   await writeFile(root, ".env", "TOKEN=1\n");
@@ -221,7 +221,7 @@ test("E2 refuses to write .env and .git/hooks without an explicit confirmation",
     block(".git/hooks/pre-commit", "", "#!/bin/sh\necho pwned\n"),
   ].join("\n");
 
-  await assert.rejects(() => applyDiffs(root, diff), /protected/i);
+  await assert.rejects(() => applyDiffs(root, diff), /gitignore|\.git/i);
   assert.equal(await fs.readFile(path.join(root, ".env"), "utf8"), "TOKEN=1\n");
   assert.equal(
     await fs.readFile(path.join(root, ".git/hooks/pre-commit"), "utf8"),
@@ -234,32 +234,14 @@ test("E2 refuses to write .env and .git/hooks without an explicit confirmation",
   assert.equal((await guard(".git/hooks/pre-commit")).ok, false);
 });
 
-test("E2 applies protected paths only when the confirmation resolves true", async () => {
+test("E2 allows writing .env when it is not gitignored", async () => {
   const root = await makeRoot("reptclip-e2y-");
   await writeFile(root, ".env", "TOKEN=1\n");
   const diff = block(".env", "TOKEN=1", "TOKEN=2");
 
-  const confirmed = await applyDiffs(root, diff, {
-    confirmProtectedPaths: async (paths) =>
-      paths.length === 1 && paths[0] === ".env",
-  });
-  assert.equal(confirmed.modified, 1);
+  const result = await applyDiffs(root, diff);
+  assert.equal(result.modified, 1);
   assert.equal(await fs.readFile(path.join(root, ".env"), "utf8"), "TOKEN=2\n");
-});
-
-test("E2 aborts without writing when the confirmation is declined", async () => {
-  const root = await makeRoot("reptclip-e2n-");
-  await writeFile(root, ".env", "TOKEN=1\n");
-  const diff = block(".env", "TOKEN=1", "TOKEN=2");
-
-  await assert.rejects(
-    () =>
-      applyDiffs(root, diff, {
-        confirmProtectedPaths: async () => false,
-      }),
-    /cancel|declin|abort/i,
-  );
-  assert.equal(await fs.readFile(path.join(root, ".env"), "utf8"), "TOKEN=1\n");
 });
 
 // ---------------------------------------------------------------------------
@@ -462,7 +444,7 @@ test("E2 refuses .git reached through an in-workspace link", async (t) => {
         root,
         block("gitlink/hooks/pre-commit", "#!/bin/sh", "#!/bin/sh\necho pwned"),
       ),
-    /protected/i,
+    /gitignore|\.git/i,
   );
   assert.equal(
     await fs.readFile(path.join(root, ".git/hooks/pre-commit"), "utf8"),
@@ -470,16 +452,11 @@ test("E2 refuses .git reached through an in-workspace link", async (t) => {
   );
 });
 
-test("E2 refuses an NTFS stream alias of .env", async () => {
-  const root = await makeRoot("reptclip-e2s-");
-  await writeFile(root, ".env", "TOKEN=1\n");
-
-  await assert.rejects(
-    () => applyDiffs(root, block(".env::$DATA", "", "TOKEN=2")),
-    /protected/i,
-  );
-  assert.equal(await fs.readFile(path.join(root, ".env"), "utf8"), "TOKEN=1\n");
-});
+// NOTE: NTFS alternate-data-stream aliasing of .env (e.g. ".env::$DATA") is no
+// longer specifically guarded now that .env has no special-cased protection;
+// it is only refused if the literal path happens to match a .gitignore
+// pattern. This is a known, accepted gap from moving to .gitignore-only
+// enforcement (see conversation/design notes), not a regression to silently fix.
 
 test("E6 detects a separator that is indented inside the REPLACE", async () => {
   const root = await makeRoot("reptclip-e6i-");
