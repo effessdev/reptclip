@@ -77,11 +77,11 @@ You can copy that block and click the "More Context" button to copy output to th
 
 > **A little behind-the-scenes:** The video demo you see above was captured, edited, and exported using [GiffyPy](https://github.com/effessdev/GiffyPy), an all-in-one screen recording and video editing tool that I built myself, specifically for GitHub READMEs!
 
-## Why you can trust it
+### Why you can trust it
 
-ReptClip only touches files that are tracked by git, meaning anything listed in `.gitignore` is completely off-limits.
+ReptClip only touches files that are tracked by git — anything your `.gitignore` excludes is completely off-limits, for reading, searching, writing, creating, or deleting, and `.git` itself is always off-limits too. Changing a `.gitignore` file always asks for confirmation first, since that can un-ignore something that was previously protected. If something ever goes wrong anyway, you can simply discard the changes with git.
 
-This isn't a soft preference: reading, writing, creating, and deleting all go through the same enforcement, with no exceptions. If something ever goes wrong, you can simply discard the changes with git. And since ignored files (like `.env`) are never touched, your sensitive files stay safe by default.
+See [Safety measures for context](#safety-measures-for-context) and [Safety measures for applying diffs](#safety-measures-for-applying-diffs) for the full details.
 
 ## Features
 
@@ -158,6 +158,8 @@ This will attach `AGENTS.md` and all Python files, but exclude `src/secret.py` a
 
 - **There is no second implementation for "More Context" to worry about.** Its commands come from the clipboard instead of the pattern textareas, but `cat` paths are checked and read through the exact same pipeline as the Context button: same `.gitignore` enforcement, same size/binary guards, same Markdown builder. `grep` runs in-process via [grepts](https://github.com/ahmadawais/grepts) with `.gitignore` respect forced on (`--no-ignore` is refused), and every matched file is re-checked through the same embedding guard before any of its lines are embedded. The only difference is what gets wrapped around the results: More Context emits the requested file and search sections alone, no project structure, "AI instructions", or "Prompt" sections, so a mid-conversation supplement pastes cleanly on top of what the chatbot already has.
 
+- **`.git` is always excluded, at any depth**, regardless of `.gitignore` content — not just a top-level `.git` folder, but a nested one too (e.g. inside a submodule).
+
 ### Write context to file
 
 You can write the context to a file specifying the relative or absolute path to the file in the "Output file" text box. Leaving it empty will not write the output to any files.
@@ -186,7 +188,11 @@ Your chatbot can:
 
 - **Dirty editor buffers win over the disk copy.** If a file is open with unsaved changes, matching and the checkpoint use the buffer, so a block that only exists in the editor is found and the unrelated unsaved lines are kept. Nothing is matched against a stale copy anymore.
 
-- **Protected paths are refused by default.** A diff cannot write anything inside `.git` (git executes content from there: hooks, aliases, `core.fsmonitor`) or to `.env` / `.env.*` (swapping the environment file is a configuration change), including when the path reaches them through a link or an NTFS stream alias. Set `reptclip.allowProtectedFileWrites` to `true` to get a confirmation dialog per apply instead of a hard refusal.
+- **A diff can only write files that aren't gitignored**, enforced by the exact same guard that governs reading — so whatever is off-limits for context is off-limits for diffs too, including through a symlink or junction. This has no override: if a path is ignored, writing it is refused outright.
+
+- **`.git` is always refused**, at any depth, regardless of `.gitignore` content — git executes content from there (hooks, aliases, `core.fsmonitor`), so a diff must never be able to write to it.
+
+- **Editing, creating, deleting, or moving a `.gitignore` file asks for confirmation first.** Since changing one can un-ignore something previously protected (like `.env`), ReptClip won't apply such a change silently — you'll see a dialog explaining the risk before it goes through.
 
 - **A diff path must stay inside the workspace, even through symlinks and junctions.** Diff paths are resolved with `fs.realpath` before anything is written, including dangling links, so a link inside the project cannot turn `linked/file.txt` into a write outside it. Hard links are not covered: they are the same file under a local path, so there is no path difference to detect.
 
@@ -280,15 +286,14 @@ Here's what actually happens, in order:
 
 Open VS Code's Settings (`Ctrl+,` / `Cmd+,`) and search for **"ReptClip"** to configure the default panel state used for any project that hasn't been opened in the panel yet (i.e. has no saved per-project state). Once a project has been used with the panel, its saved state takes over and these settings no longer apply to it.
 
-| Setting                             | Default | Description                                                              |
-| ----------------------------------- | ------- | ------------------------------------------------------------------------ |
-| `reptclip.defaultAttach`            | `""`    | Default value for the **Files to attach** field.                         |
-| `reptclip.defaultExclude`           | `""`    | Default value for the **Files to exclude** field.                        |
-| `reptclip.defaultClipboard`         | `true`  | Whether **Copy to clipboard** is checked by default.                     |
-| `reptclip.defaultProjectStructure`  | `true`  | Whether the **Project structure** section is checked by default.         |
-| `reptclip.defaultDiffFormat`        | `true`  | Whether the **AI instructions** section is checked by default.           |
-| `reptclip.defaultFiles`             | `true`  | Whether the **Files** section is checked by default.                     |
-| `reptclip.defaultPromptTail`        | `true`  | Whether the **Prompt** section is checked by default.                    |
-| `reptclip.defaultOutputFile`        | `""`    | Default value for the **Output file** field.                             |
-| `reptclip.allowProtectedFileWrites` | `false` | Allow diffs that write `.git/**` or `.env*` after a confirmation dialog. |
-| `reptclip.showLineCounts`           | `true`  | Show each file's raw line count in the **Project structure** section.    |
+| Setting                            | Default | Description                                                           |
+| ---------------------------------- | ------- | --------------------------------------------------------------------- |
+| `reptclip.defaultAttach`           | `""`    | Default value for the **Files to attach** field.                      |
+| `reptclip.defaultExclude`          | `""`    | Default value for the **Files to exclude** field.                     |
+| `reptclip.defaultClipboard`        | `true`  | Whether **Copy to clipboard** is checked by default.                  |
+| `reptclip.defaultProjectStructure` | `true`  | Whether the **Project structure** section is checked by default.      |
+| `reptclip.defaultDiffFormat`       | `true`  | Whether the **AI instructions** section is checked by default.        |
+| `reptclip.defaultFiles`            | `true`  | Whether the **Files** section is checked by default.                  |
+| `reptclip.defaultPromptTail`       | `true`  | Whether the **Prompt** section is checked by default.                 |
+| `reptclip.defaultOutputFile`       | `""`    | Default value for the **Output file** field.                          |
+| `reptclip.showLineCounts`          | `true`  | Show each file's raw line count in the **Project structure** section. |
