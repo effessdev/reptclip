@@ -150,11 +150,17 @@ You can write the context to a file specifying the relative or absolute path to 
 
 When you click the "Apply diffs" button, the diffs are read from your clipboard and applied to the files.
 
-If you have turned on the "AI instructions" section, the AI will generate the diffs in a single code block. You can copy those diffs, and click "Apply diffs" to apply them.
+Keep the AI instructions section turned ON so the AI has the rules needed to generate the diffs. It outputs all diffs in a single code block. Copy the block and click Apply diffs to apply.
 
 Watch how beautifully ReptClip applies a large project reorganization:
 
 <img width="1920" alt="ReptClip applying large diff" src="https://github.com/user-attachments/assets/a4c8c51e-2b10-4d00-9859-6e52c07c5336" />
+
+Your chatbot can:
+
+- Write, edit, and remove lines in a file
+- Move or rename files
+- Delete files
 
 #### Safety measures for applying diffs
 
@@ -224,7 +230,27 @@ Here's what actually happens, in order:
 2. **Pre-flight validation, all-or-nothing.** Before anything runs, every command is checked. `cat` and `read-lines` paths clear the embedding guard and are `fs.stat`-ed against the workspace root: not found, a directory rather than a file, ignored by `.gitignore`, inside `.git`, absolute, or resolving outside the project root all fail the check; `read-lines` additionally fails if `start_line` is past the file's actual line count. `grep` commands are parsed and validated up front too: invalid patterns, paths that fail the same checks, and unsupported flags all fail the check. Nothing is copied, nothing is written, no half-baked context reaches your clipboard; instead the panel names each offender and why. You fix the block and click again.
 3. **Only then does it build.** `cat` and `read-lines` files are read through the shared pipeline (1 MB limit, binary detection, descriptive placeholders); `read-lines` then slices out the requested 1-indexed, inclusive line range (clamping `end_line` to the file's last line, or defaulting to it when omitted) before formatting. `grep` searches run in-process via grepts with `.gitignore` respect forced on, and matched files are re-checked through the embedding guard before their lines are embedded. The results are placed under `# Files`, with one `## <path>` (`cat`) or `## <the command as typed>` (`grep`, `read-lines`) subsection per command, and each subsection contains a code fence. The Project structure / AI instructions / Prompt section checkboxes are deliberately not applied, since those were already sent when you first generated the context.
 
-Supported `grep` flags: `-i` (ignore case), `-n` (line numbers, on by default), `-N` / `--no-line-number`, `-c` (count per file), `-l` (files with matches), `--files-without-match`, `-w` (whole words), `-F` (literal string), `-g <glob>` (filter files, e.g. `-g "*.ts"`), `-m <n>` (max matches per file), `-v` / `--invert-match`, `-U` (multiline), `--hidden`, `--max-depth <n>`, and `-e <pattern>`. Combined short flags (`-rn`) and `--` work too, and `-r` / `-R` / `-E` / `--no-color` are accepted as no-ops. Context flags (`-C` / `-A` / `-B`) are not supported by grepts yet and are rejected, as are `--no-ignore` (ignored files are never searched) and `-q` / `--quiet` (they would produce no output).
+| Supported `grep` flag(s) | Description                                      |
+| :----------------------- | :----------------------------------------------- |
+| `-i`                     | Ignore case                                      |
+| `-n`                     | Show line numbers (on by default)                |
+| `-N`, `--no-line-number` | Hide line numbers                                |
+| `-c`                     | Show match count per file                        |
+| `-l`                     | List only files with matches                     |
+| `--files-without-match`  | List only files without matches                  |
+| `-w`                     | Match whole words only                           |
+| `-F`                     | Treat pattern as a literal string                |
+| `-g <glob>`              | Filter files by glob pattern (e.g., `-g "*.ts"`) |
+| `-m <n>`                 | Limit matches per file to `<n>`                  |
+| `-v`, `--invert-match`   | Invert match (return non-matching lines)         |
+| `-U`                     | Enable multiline matching                        |
+| `--hidden`               | Include hidden files                             |
+| `--max-depth <n>`        | Limit directory traversal depth to `<n>`         |
+| `-e <pattern>`           | Specify search pattern                           |
+
+- **Combined short flags & `--`:** Combined short flags (e.g., `-rn`) and `--` (end of flags) are supported.
+- **No-op flags:** `-r`, `-R`, `-E`, and `--no-color` are accepted without effect.
+- **Rejected flags:** Context flags (`-C`, `-A`, `-B`) are not supported by `grepts` yet; `--no-ignore` is rejected because ignored files are never searched; `-q` and `--quiet` are rejected because they would produce no output.
 
 ### Optimized UI
 
