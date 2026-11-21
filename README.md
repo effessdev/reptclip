@@ -152,6 +152,10 @@ When you click the "Apply diffs" button, the diffs are read from your clipboard 
 
 If you have turned on the "AI instructions" section, the AI will generate the diffs in a single code block. You can copy those diffs, and click "Apply diffs" to apply them.
 
+Watch how beautifully ReptClip applies a large project reorganization:
+
+<img width="1920" alt="ReptClip applying large diff" src="https://github.com/user-attachments/assets/a4c8c51e-2b10-4d00-9859-6e52c07c5336" />
+
 #### Safety measures for applying diffs
 
 - **Applying a diff is all-or-nothing**: if any SEARCH block fails to validate (no match, not unique, edits a deleted file, etc.), the entire diff isn't applied, and you get an error message stating the reason.
