@@ -77,6 +77,12 @@ You can copy that block and click the "More Context" button to copy output to th
 
 > **A little behind-the-scenes:** The video demo you see above was captured, edited, and exported using [GiffyPy](https://github.com/effessdev/GiffyPy), an all-in-one screen recording and video editing tool that I built myself, specifically for GitHub READMEs!
 
+## Why you can trust it
+
+ReptClip only touches files that are tracked by git, meaning anything listed in `.gitignore` is completely off-limits.
+
+This isn't a soft preference: reading, writing, creating, and deleting all go through the same enforcement, with no exceptions. If something ever goes wrong, you can simply discard the changes with git. And since ignored files (like `.env`) are never touched, your sensitive files stay safe by default.
+
 ## Features
 
 ### Preparing Context

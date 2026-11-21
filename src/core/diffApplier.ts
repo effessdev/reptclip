@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import * as fs from "fs/promises";
 import * as path from "path";
 import * as crypto from "crypto";
+import { createEmbeddingGuard } from "./gitignoreScanner";
 
 /**
  * Applies Search/Replace diff blocks copied from an LLM chat, following the
@@ -647,11 +648,18 @@ export async function applyDiffs(
     | undefined
   )[] = [];
   const protectedPaths = new Set<string>();
+  const ignoredPaths = new Set<string>();
+  const isEmbeddable = createEmbeddingGuard(rootDir);
+
   for (const block of blocks) {
     const target = await resolveFile(rootDir, block.file);
     resolvedTargets.push(target);
     if (isProtectedPath(block.file) || isProtectedPath(target.realRelPath)) {
       protectedPaths.add(block.file);
+    }
+    const verdict = await isEmbeddable(block.file);
+    if (!verdict.ok && verdict.reason === "ignored by .gitignore") {
+      ignoredPaths.add(block.file);
     }
 
     if (block.kind === "move") {
@@ -666,10 +674,15 @@ export async function applyDiffs(
       ) {
         protectedPaths.add(block.destination!);
       }
+      const destVerdict = await isEmbeddable(block.destination!);
+      if (!destVerdict.ok && destVerdict.reason === "ignored by .gitignore") {
+        ignoredPaths.add(block.destination!);
+      }
     } else {
       resolvedDestinations.push(undefined);
     }
   }
+
   if (protectedPaths.size > 0) {
     const files = [...protectedPaths];
     if (!options.confirmProtectedPaths) {
@@ -685,6 +698,14 @@ export async function applyDiffs(
         `Apply cancelled: protected paths were not confirmed (${files.join(", ")}).`,
       );
     }
+  }
+
+  if (ignoredPaths.size > 0) {
+    const files = [...ignoredPaths];
+    throw new Error(
+      `Refusing to write files ignored by .gitignore: ${files.join(", ")}. ` +
+        "Diffs can only touch tracked files — remove the matching .gitignore pattern first if you want ReptClip to manage them.",
+    );
   }
 
   // Simulate every block, in order, per file so all validation happens
