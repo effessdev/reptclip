@@ -23,7 +23,7 @@ export interface BuildMarkdownInput {
 // without escaping. esbuild inlines it as a string at build time (see the
 // `loader: { '.md': 'text' }` rule in esbuild.js), so nothing is read from
 // disk at runtime and the file never ships separately to users.
-import DIFF_FORMAT_SECTION from "./diff-format.md";
+import AI_INSTRUCTIONS_SECTION from "./ai-instructions.md";
 
 /**
  * Produces the same overall shape as the original CLI's output:
@@ -50,7 +50,7 @@ export function buildMarkdown(input: BuildMarkdownInput): string {
   }
 
   if (input.includeDiffFormat) {
-    parts.push(DIFF_FORMAT_SECTION);
+    parts.push(AI_INSTRUCTIONS_SECTION);
   }
 
   if (input.includeFiles) {

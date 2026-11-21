@@ -24,6 +24,7 @@ It contains the following sections:
 - **Checkboxes (all are ON by default):**
   - **Copy to clipboard:** Whether to copy the context to the clipboard.
   - **Other checkboxes:** Used to toggle sections within the context (e.g., if you don't want the project structure in the context, disable "Project structure" checkbox to remove that section).
+
 - **Text boxes:**
   - **Files to include:** Specify which files you want to include in the context. Enter relative file paths or glob patterns to match multiple files. Syntax highlighting and suggestions are supported!
   - **Files to exclude:** Specify which files to exclude from the included files.
@@ -40,11 +41,15 @@ The empty space between the **Apply Diffs** button and the undo button is used t
 
 ### Step 1: Copy context to clipboard
 
-Use "Files to include" text box to specify the files you want to include in the context. You can use relative paths or glob patterns (e.g., `src/**/*.py` to add all Python files in `src`). Press "Enter" or click the "Context" button to copy the context **straight to your clipboard**. If no files are selected, ReptClip shows **“No files attached.”** and keeps the remaining enabled context sections.
+The context consists of the **Project structure**, **AI instructions**, and **attatched files**. All in Markdown. [See example context](#preparing-context)
+
+Use "Files to include" text box to attatch files to the context. You can use relative paths or glob patterns (e.g., `src/**/*.py` to add all Python files in `src`). You will get **live suggestions** and **syntax highlighting** as you type. Press "Enter" or click the "Context" button to copy the context **straight to your clipboard**.
+
+If no files are selected, ReptClip shows **“No files attached.”** and keeps the remaining enabled context sections.
 
 ### Step 2: Paste context to your chatbot, along with your prompt
 
-The chatbot will generate the diffs for you, according to the instructions given in the "AI instructions" section in the context.
+The chatbot will generate the diffs for you, according to the instructions provided in the context.
 
 ### Step 3: Apply the generated diffs
 
@@ -54,7 +59,7 @@ Didn't like it? Click the Undo button. Changed your mind? Click the Redo button!
 
 ### Optional step (before step 3): Add more context
 
-If the chatbot wants to see more files or search the project, it will generate a code block containing custom `cat`, `grep`, and `read-lines` commands. You can copy that block and click the "More Context" button to copy output to the clipboard, and paste it back to the chatbot.
+If the chatbot wants to see more files or search the project, it will generate a code block containing _custom_ `cat`, `grep`, and `read-lines` commands. You can copy that block and click the "More Context" button to copy output to the clipboard, and paste it back to the chatbot.
 
 ### Next time you come back...
 
@@ -64,18 +69,18 @@ If the chatbot wants to see more files or search the project, it will generate a
 
 ## Features
 
-### Copying context to clipboard
+### Preparing Context
 
 The generated context has the following sections (**each one can be toggled ON or OFF using checkboxes**):
 
 - **Project structure:** lists the relative paths to all files in the project that have not been ignored using `.gitignore`, with their line count.
 - **AI instructions:** contains the instructions regarding how to generate the output.
-- **Files:** the files you included in the context.
+- **Files:** the files you attatched (specified in "Files to include" text box).
 - **Prompt section:** an empty `# Prompt\n\n` section to type in your prompt.
 
-The included files are placed between the "AI instructions" section and the "Prompt" section. You can include files to the context by either entering the relative paths of them or a matching glob pattern in the **Files to include** textarea, separated by spaces. Mid-conversation additions are handled by the **More Context** button (see [Adding more context](#adding-more-context)).
+You can attatch files in the context by either entering the relative paths of them or a matching glob pattern in the **Files to include** text box, separated by spaces. Mid-conversation context additions are handled by the **More Context** button (see [Adding more context](#adding-more-context-the-more-context-button)).
 
-Example generated context (only `AGENTS.md` is included):
+Example generated context when all sections are enabled and only `AGENTS.md` is attatched:
 
 ````markdown
 # Project structure
@@ -85,125 +90,13 @@ The number in parentheses after a file is its raw line count (including blank li
 ```
 .gitignore (12)
 AGENTS.md (9)
-README.md (210)
 media/icon.png
 src/main.py (387)
 ```
 
 # AI instructions
 
-The user is using the VS Code extension [ReptClip](https://github.com/effessdev/reptclip). You can utilize the following features of the extension.
-
-## Reading files and searching
-
-To read files or search the project, generate a code block containing one command per line:
-
-- `cat <path>` reads a file. Quote paths that contain spaces, e.g. `cat "src/my file.ts"`. Each `cat` takes exactly one path.
-- `grep <flags> <pattern> [paths...]` searches file contents, ripgrep-style. Without paths it searches the whole project.
-- `read-lines <path> <start_line> [end_line]` reads a 1-indexed, inclusive range of lines from a file, e.g. `read-lines src/main.py 10 25`. Omit `end_line` to read to the end of the file; an `end_line` past the end of the file is simply clamped to it.
-
-Useful flags: `-i` (ignore case), `-F` (literal string), `-w` (whole words), `-v` (invert match), `-l` (file names only), `-c` (match counts), `-m <n>` (max matches per file), `-g "*.ts"` (filter files by glob). Line numbers are included by default. Context flags (`-C` / `-A` / `-B`), `--no-ignore`, and `-q` are not supported, and searches always respect `.gitignore`.
-
-Example:
-
-```
-cat README.md
-cat "src/main.py"
-grep -n "TODO" src
-read-lines src/main.py 10 25
-```
-
-After generating the code block, ask the user to copy that code block and click the "More Context" button in the ReptClip panel to copy the file contents and search results to their clipboard, and paste it back to you.
-
-Each command comes back under a top-level `# Files` section: `## <path>` contains a `cat` file's contents, `## <the grep command>` contains matching lines (`path:line:content`) for `grep`, and `## <the read-lines command>` contains the requested line range for `read-lines`.
-
-Before generating any edits (below), make sure you have the current contents of every file you plan to edit. If you don't have a file's contents, or can't confirm they're current, request it via these commands first rather than guessing at the content.
-
-## Editing files
-
-To edit the files, generate all file modifications as Search/Replace blocks inside a single 4-backtick code block (see example below). Then, tell the user to copy that code block and click "Apply Diffs" in the ReptClip panel to apply these changes.
-
-### Example code block
-
-```
-src/models/user.py
-<<<<<<< SEARCH
-class User:
-    def __init__(self, name):
-        self.name = name
-
-    def to_dict(self):
-        return {"name": self.name}
-=======
-class User:
-    def __init__(self, name, email):
-        self.name = name
-        self.email = email
-
-    def to_dict(self):
-        return {
-            "name": self.name,
-            "email": self.email,
-        }
->>>>>>> REPLACE
-
-src/controllers/user_controller.py
-<<<<<<< SEARCH
-from src/models.user import User
-=======
-from src/models.user import User
-from src.utils.validator import validate_email
->>>>>>> REPLACE
-<<<<<<< SEARCH
-def create_user(name):
-    return User(name)
-=======
-def create_user(name, email):
-    validate_email(email)
-    return User(name, email)
->>>>>>> REPLACE
-<<<<<<< SEARCH
-def legacy_create_user(name):
-    return User(name)
-
->>>>>>> REPLACE
-
-src/utils/validator.py
-<<<<<<< SEARCH
-=======
-def validate_email(email):
-    if "@" not in email:
-        raise ValueError("Invalid email address")
->>>>>>> REPLACE
-
-config/legacy.json
-<<<<<<< SEARCH
-{
-    "deprecated": true
-}
-=======
->>>>>>> REPLACE
-```
-
-#### Explanation
-
-1. **File Headers:** Every set of edits must begin with the exact relative file path on its own line (e.g., `path/to/file.ext`), even if there is only a single file in the project. When a block contains edits for more than one file, separate each file's section with a blank line.
-
-2. **Exact Matching:** The `SEARCH` block must contain an _exact, verbatim_ copy of existing code, including identical whitespace, indentation, and surrounding context lines to uniquely identify the match. The tool falls back to whitespace-tolerant matching if the exact text isn't found, but this is a safety net, not something to rely on — always aim for an exact match, since a bad fallback match can still fail or match the wrong place.
-
-3. **Uniqueness:** Provide sufficient surrounding unchanged lines in the `SEARCH` block to ensure it matches exactly **one** location in the target file.
-
-4. **New Files, Moves & Deletions:**
-   - To create a new file, use an empty `SEARCH` block.
-   - An empty `REPLACE` block removes the matched text but keeps the file, including if the file becomes empty.
-   - To move or rename a file without modifying it, use `old/path.txt -> new/path.txt` on its own line.
-   - To delete a whole file, use `old/path.txt delete` on its own line.
-
-5. **No Placeholders:** Do not use ellipses (`...`), comments like `# rest of code unchanged`, or omitted lines inside `SEARCH` or `REPLACE` blocks.
-
-6. **Sequential Edits:** For multiple blocks on the same file, write each `SEARCH` to match the file as it will exist at the moment that block is applied. I.e., after all earlier blocks in your list have already been applied to that file. List them in the order you intend them to be applied sequentially.
-
-7. **No Marker Collisions:** Inside `SEARCH`, a trimmed line equal to `=======` ends the block early — it's read as the separator. Inside `REPLACE`, a trimmed line starting with `>>>>>>> REPLACE` ends the block early, and a line equal to `=======` triggers a suspicious-edit warning that can block the apply. A `<<<<<<< SEARCH` line is harmless in either block. If matched code requires one of these, split the edit so the line falls outside the block; if that's not possible, tell the user instead of continuing.
+[Placeholder: instructions on how to generate the output, omitted here due to length. See ./src/core/ai-instructions.md for the full text]
 
 # Files
 
@@ -218,9 +111,26 @@ Do not make mistakes.
 <- Cursor lands here. You can quickly start typing.
 ````
 
+To view the full contents of the "AI instructions" section, see [ai-instructions.md](./src/core/ai-instructions.md).
+
 **Enter inside any input runs "Context"**, so you never have to reach for the button; while the suggestion dropdown is open, Enter/Tab _accepts_ the highlighted file instead, and `Shift + Enter` always inserts a newline.
 
 You can uncheck "Copy to clipboard" to turn it off.
+
+#### Live suggestions and syntax highlighting
+
+A relative path or a glob pattern in "Files to include" will turn **green** if they match at least one file, and turn **yellow** if they math no files. For "Files to exclude", green means it matches **at least one included file**.
+
+#### Order is preserved
+
+The order in which you entered the relative paths or glob patterns is preserved. In case of redundant items, **the item that comes last gets order preference**, so if you set files to include as `**/*.py main.py`, `main.py` comes after all other `.py` files. `**/*.py src/**/*.py` puts `.py` files in `src` last. This is particularly useful for putting the most important files closer to the prompt.
+
+Example:
+
+- **Files to include:** `AGENTS.md **/*.py src/main.py`
+- **Files to exclude:** `src/secret.py src/**/*.py`
+
+This will attatch `AGENTS.md` and all Python files, but exclude `src/secret.py` and all Python files in `tests`, and put `src/main.py` last:
 
 #### Safety measures for context
 
@@ -268,27 +178,7 @@ Next to the status message, **Undo** and **Redo** buttons step backward and forw
 
 Undo displays a warning if the file has been modified, checking both the saved file on disk and any unsaved changes in the editor.
 
-### Adding more context
-
-#### Up front: the pattern textareas
-
-Pick the files before generating, with two textareas:
-
-- **Files to include:** Specify which files to include in the context, separated by spaces. You can use the relative paths, or glob patterns to match files.
-- **Files to exclude:** Specify which files you want to exclude from the included files. Particuluarly useful when you want to include a lot of files using a glob pattern, but exclude a specific file from them.
-
-You will get **suggestions** and **syntax highlighting** as you type the files. A relative path or a glob pattern in "Files to include" will turn **green** if they match at least one file, and turn **yellow** if they math no files. For "Files to exclude", green means it matches **at least one included file**.
-
-The order in which you entered the relative paths or glob patterns is preserved. In case of redundant items, **the item that comes last gets order preference**, so if you set files to include as `**/*.py main.py`, `main.py` comes after all other `.py` files. `**/*.py src/**/*.py` puts `.py` files in `src` last.
-
-##### Example
-
-Include `AGENTS.md`, all Python files, but exclude `src/secret.py` and all Python files in `tests`, and put `src/main.py` last:
-
-- **Files to include:** `AGENTS.md **/*.py src/main.py`
-- **Files to exclude:** `src/secret.py src/**/*.py`
-
-#### Mid-conversation: the "More Context" button
+### Adding more context: the "More Context" button
 
 Paste-ready command blocks don't come only from you. The "AI instructions" section explicitly instructs the chatbot to emit one when it needs more context. Copy that block, click **More Context**, and the button does the rest: it reads the clipboard, runs the commands, and (depending on your settings) puts the result back on the clipboard and/or writes it to the "Output file".
 
