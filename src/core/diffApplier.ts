@@ -76,6 +76,13 @@ export interface ApplyOptions {
    * which usually means the SEARCH separator was swallowed by the parser.
    */
   confirmSuspiciousReplace?: (files: string[]) => Promise<boolean>;
+  /**
+   * Resolve true to create, modify, delete, or move a `.gitignore` file.
+   * Changing one can un-ignore previously protected paths — e.g. deleting a
+   * line that ignored `.env` — so the host must warn the user explicitly
+   * before this is allowed to proceed.
+   */
+  confirmGitignoreEdits?: (paths: string[]) => Promise<boolean>;
 }
 
 /** Options for `applySnapshot` (undo/redo). */
@@ -117,6 +124,18 @@ async function hasDiskChanges(
 const SEARCH_MARKER = "<<<<<<< SEARCH";
 const SEPARATOR = "=======";
 const REPLACE_MARKER = ">>>>>>> REPLACE";
+
+/**
+ * Whether a diff path's final segment is `.gitignore`. Touching one of these
+ * is flagged separately from an ordinary file: it changes which paths are
+ * excluded above, so editing, creating, deleting, or moving one can silently
+ * un-ignore something sensitive (like `.env`) that was previously protected.
+ */
+function isGitignoreFile(relative: string): boolean {
+  const segments = relative.split(/[\\/]+/).filter(Boolean);
+  const base = (segments[segments.length - 1] ?? "").toLowerCase();
+  return base === ".gitignore";
+}
 
 /**
  * Line-based state machine. Outside a block, every non-empty line is treated
@@ -659,6 +678,36 @@ export async function applyDiffs(
       `Refusing to write paths .gitignore excludes from context: ${details}. ` +
         "Diffs can only touch tracked files — untrack them in .gitignore first if you want ReptClip to manage them.",
     );
+  }
+
+  const gitignoreTouches = new Set<string>();
+  for (const block of blocks) {
+    if (isGitignoreFile(block.file)) {
+      gitignoreTouches.add(block.file);
+    }
+    if (
+      block.kind === "move" &&
+      block.destination &&
+      isGitignoreFile(block.destination)
+    ) {
+      gitignoreTouches.add(block.destination);
+    }
+  }
+  if (gitignoreTouches.size > 0) {
+    const files = [...gitignoreTouches];
+    if (!options.confirmGitignoreEdits) {
+      throw new Error(
+        `Refusing to modify .gitignore without confirmation: ${files.join(", ")}. ` +
+          "Changing .gitignore can un-ignore sensitive files such as .env. " +
+          "Confirm explicitly to proceed.",
+      );
+    }
+    const confirmed = await options.confirmGitignoreEdits(files);
+    if (!confirmed) {
+      throw new Error(
+        `Apply cancelled: changes to .gitignore were not confirmed (${files.join(", ")}).`,
+      );
+    }
   }
 
   // Simulate every block, in order, per file so all validation happens
