@@ -9,6 +9,8 @@ import {
   saveLastAppliedFingerprint,
   getConfiguredDefaultUiState,
   hasSavedProjectState,
+  loadLabelsEnabled,
+  saveLabelsEnabled,
 } from "../core/projectStorage";
 import { generateContext } from "../core/generateContext";
 import { moreContext } from "../core/moreContext";
@@ -91,6 +93,7 @@ export class ReptclipViewProvider implements vscode.WebviewViewProvider {
       hasWorkspace: !!rootDir,
       canUndo: !!rootDir && (this.undoStacks.get(rootDir)?.length ?? 0) > 0,
       canRedo: !!rootDir && (this.redoStacks.get(rootDir)?.length ?? 0) > 0,
+      labels: loadLabelsEnabled(this.context),
     });
 
     // Computes match flags for every attach/exclude token against the current
@@ -164,6 +167,7 @@ export class ReptclipViewProvider implements vscode.WebviewViewProvider {
             hasWorkspace: true,
             canUndo: (this.undoStacks.get(rootDir)?.length ?? 0) > 0,
             canRedo: (this.redoStacks.get(rootDir)?.length ?? 0) > 0,
+            labels: loadLabelsEnabled(this.context),
           });
         }
       });
@@ -177,6 +181,11 @@ export class ReptclipViewProvider implements vscode.WebviewViewProvider {
             if (rootDir) {
               await saveProjectState(this.context, rootDir, message.state);
             }
+            return;
+          }
+
+          case "labelsChanged": {
+            await saveLabelsEnabled(this.context, message.labels);
             return;
           }
 

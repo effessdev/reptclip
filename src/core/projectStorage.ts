@@ -3,6 +3,7 @@ import { UiState, defaultUiState } from "./types";
 
 const STORAGE_KEY = "reptclip.projectStates";
 const LAST_APPLIED_KEY = "reptclip.lastAppliedDiffs";
+const LABELS_KEY = "reptclip.labelsEnabled";
 
 type ProjectStateMap = Record<string, UiState>;
 type FingerprintMap = Record<string, string>;
@@ -97,4 +98,20 @@ export async function saveLastAppliedFingerprint(
   const all = context.globalState.get<FingerprintMap>(LAST_APPLIED_KEY, {});
   all[normalize(rootDir)] = fingerprint;
   await context.globalState.update(LAST_APPLIED_KEY, all);
+}
+
+/**
+ * Whether checkbox/field labels are shown in the panel UI. This is a global
+ * (not per-project) preference: it applies to every project the same way,
+ * unlike the rest of UiState.
+ */
+export function loadLabelsEnabled(context: vscode.ExtensionContext): boolean {
+  return context.globalState.get<boolean>(LABELS_KEY, true);
+}
+
+export async function saveLabelsEnabled(
+  context: vscode.ExtensionContext,
+  labels: boolean,
+): Promise<void> {
+  await context.globalState.update(LABELS_KEY, labels);
 }

@@ -10,6 +10,7 @@
     attachSection: document.getElementById("attach-section"),
     excludeSection: document.getElementById("exclude-section"),
     clipboard: document.getElementById("clipboard"),
+    labels: document.getElementById("labels"),
     structure: document.getElementById("structure"),
     diffFormat: document.getElementById("diffFormat"),
     files: document.getElementById("files"),
@@ -529,6 +530,10 @@
   ].forEach((el) => {
     el.addEventListener("change", persist);
   });
+  els.labels.addEventListener("change", () => {
+    document.body.classList.toggle("hide-labels", !els.labels.checked);
+    vscode.postMessage({ type: "labelsChanged", labels: els.labels.checked });
+  });
   els.files.addEventListener("change", () => {
     updateFileControlsVisibility();
     persist();
@@ -562,6 +567,9 @@
       els.files.checked = s.files !== undefined ? !!s.files : true;
       els.promptTail.checked = !!s.promptTail;
       els.output.value = s.outputFile ?? "";
+      els.labels.checked =
+        message.labels !== undefined ? !!message.labels : true;
+      document.body.classList.toggle("hide-labels", !els.labels.checked);
       updateFileControlsVisibility();
       syncPatternFieldHeights();
       els.warning.hidden = message.hasWorkspace;

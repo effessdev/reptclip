@@ -41,6 +41,7 @@ export type HostToWebviewMessage =
       hasWorkspace: boolean;
       canUndo: boolean;
       canRedo: boolean;
+      labels: boolean;
     }
   | {
       type: "runResult";
@@ -90,6 +91,7 @@ export type HostToWebviewMessage =
 /** Messages sent from the webview to the extension host. */
 export type WebviewToHostMessage =
   | { type: "stateChanged"; state: UiState }
+  | { type: "labelsChanged"; labels: boolean }
   | { type: "run"; state: UiState }
   | { type: "moreContext"; state: UiState }
   | { type: "applyDiffs" }
