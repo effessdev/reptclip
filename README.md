@@ -21,8 +21,6 @@ Zoomed in:
 
 To open the tab, press ``Ctrl + ` `` to open the bottom panel, then select **ReptClip**.
 
-> **Note:** If there's not enough space to display all the panel tabs, ReptClip might be hidden under the `...` menu. You can drag the ReptClip tab to the beginning of the list to keep it easily accessible.
-
 ### Step 1: Copy context to clipboard
 
 By default, the context consists of the **Project structure**, **AI instructions**, **attached files**, and an empty **Prompt** section to put your prompt. All in Markdown.
@@ -328,3 +326,9 @@ Open VS Code's Settings (`Ctrl+,` / `Cmd+,`) and search for **"ReptClip"** to co
 | `reptclip.defaultPromptTail`       | `true`  | Whether the **Prompt** section is checked by default.                 |
 | `reptclip.defaultOutputFile`       | `""`    | Default value for the **Output file** field.                          |
 | `reptclip.showLineCounts`          | `true`  | Show each file's raw line count in the **Project structure** section. |
+
+## Frequently Asked Questions (FAQs)
+
+**Q: Why can't I see the ReptClip tab in the bottom panel?**
+
+**A:** If there's not enough space to display all panel tabs, ReptClip may be hidden under the `...` menu. To keep it easily accessible, simply drag its tab to the beginning of the list.
