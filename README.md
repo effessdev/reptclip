@@ -291,6 +291,12 @@ This also shows a rough token estimate.
 
 - **Show labels checkbox:** You can uncheck "Show labesl" in "Other settings" to hide labels to save space. Useful when you have memorized the UI layout and needs more vertical space.
 
+It works wherever you place it. For example, in the bottom panel:
+
+In the sidebar:
+
+Or even below the Explorer so your files, terminal, and ReptClip are visible at the same time! Like this:
+
 ## Settings
 
 Open VS Code's Settings (`Ctrl+,` / `Cmd+,`) and search for **"ReptClip"** to configure the default panel state used for any project that hasn't been opened in the panel yet (i.e. has no saved per-project state). Once a project has been used with the panel, its saved state takes over and these settings no longer apply to it.

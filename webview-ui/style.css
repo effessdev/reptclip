@@ -175,6 +175,61 @@ input[type="text"]:focus {
   }
 }
 
+/* Sidebar / narrow-panel layout. The actions row (Context, More Context,
+   Apply Diffs, status, undo/redo) is a single nowrap flex row that only
+   fits in a wide bottom panel. Below this width — the range a sidebar view
+   normally sits in — reflow it into stacked rows instead of letting it
+   overflow or clip. `order` lets this happen without touching the DOM. */
+@media (max-width: 480px) {
+  body {
+    padding: 8px 10px;
+  }
+
+  .checkboxes .checkbox {
+    margin-right: 10px;
+  }
+
+  .actions {
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+
+  button#runBtn {
+    order: 1;
+    flex: 1 1 100%;
+  }
+
+  button#moreContextBtn,
+  button#applyBtn {
+    order: 2;
+    flex: 1 1 calc(50% - 5px);
+    white-space: normal;
+    padding: 6px 8px;
+    text-align: center;
+  }
+
+  .status {
+    order: 3;
+    flex: 1 1 100%;
+  }
+
+  .undo-redo-group {
+    order: 4;
+    flex: 0 1 auto;
+    margin-left: auto;
+  }
+}
+
+/* Very narrow sidebars (near VS Code's minimum sidebar width): even a
+   half-width "More Context" / "Apply Diffs" pair is too cramped, so stack
+   those full-width too. */
+@media (max-width: 220px) {
+  button#moreContextBtn,
+  button#applyBtn {
+    flex: 1 1 100%;
+  }
+}
+
 /* Token highlighting for the attach/exclude boxes. The backdrop mirrors the
    textarea's text with a colored span per token; the textarea text is made
    transparent so only the backdrop shows, while the textarea still handles
