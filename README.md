@@ -293,9 +293,15 @@ This also shows a rough token estimate.
 
 It works wherever you place it. For example, in the bottom panel:
 
+<img width="1356" alt="ReptClip in the panel" src="https://github.com/user-attachments/assets/ffdc154a-7d05-49d9-a65d-ac92b34d9bcd" />
+
 In the sidebar:
 
+<img width="1360" alt="ReptClip in the sidebar" src="https://github.com/user-attachments/assets/220ccc25-c858-420c-ab67-d5c4b6e7c352" />
+
 Or even below the Explorer so your files, terminal, and ReptClip are visible at the same time! Like this:
+
+<img width="1362" alt="ReptClip below the explorer" src="https://github.com/user-attachments/assets/e7a2e4ee-8573-461d-997f-e5ab64824e48" />
 
 ## Settings
 
