@@ -42,7 +42,7 @@ It contains the following sections:
   - **Copy to clipboard:** Whether to copy the context to the clipboard.
   - **Show labels:** Uncheck this to hide labels in the UI to save space.
 
-The empty space between the **Apply Diffs** button and the undo button is used to display status messages and errors.
+The empty space between the **Apply Diffs** button and the undo button is used to display status messages and errors, including a rough estimate of the generated context's token count (e.g. `~1.2k token(s)`), shown after "Context" or "More Context" finishes.
 
 ### Step 1: Copy context to clipboard
 
@@ -94,6 +94,8 @@ The generated context has the following sections (**each one can be toggled ON o
 - **AI instructions:** contains the instructions regarding how to generate the output.
 - **Files:** the files you attached (specified in "Files to attach" text box).
 - **Prompt section:** an empty `# Prompt\n\n` section to type in your prompt.
+
+After generating context via either the "Context" or "More Context" button, the status area shows a rough estimate of its token count (e.g. `~1.2k token(s)`), computed as characters divided by 4. This applies to both buttons: "Context" shows it alongside the file count, and "More Context" shows it alongside the file count and search results. It's a quick ballpark for how much of a chatbot's context window the output will use, not an exact count for any particular model's tokenizer.
 
 You can attach files in the context by either entering the relative paths of them or a matching glob pattern in the **Files to attach** text box, separated by spaces. Mid-conversation context additions are handled by the **More Context** button (see [Adding more context](#adding-more-context-the-more-context-button)).
 
@@ -276,6 +278,8 @@ Here's what actually happens, in order:
 - **Combined short flags & `--`:** Combined short flags (e.g., `-rn`) and `--` (end of flags) are supported.
 - **No-op flags:** `-r`, `-R`, `-E`, and `--no-color` are accepted without effect.
 - **Rejected flags:** Context flags (`-C`, `-A`, `-B`) are not supported by `grepts` yet; `--no-ignore` is rejected because ignored files are never searched; `-q` and `--quiet` are rejected because they would produce no output.
+
+This also shows a rough token estimate.
 
 ### Optimized UI
 
