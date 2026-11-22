@@ -11,44 +11,23 @@ https://github.com/user-attachments/assets/7511352d-5db7-4e2f-8182-970405924406
 
 ## How it works (briefly)
 
-Installing the extension adds a **ReptClip** tab to the bottom panel in VS Code. This is where everything happens.
+Installing the extension adds a **ReptClip** tab to the bottom panel in VS Code. This is where everything happens:
+
+{I'll add image soon!}
+
+Zoomed in:
+
+{I'll add this later as well}
 
 To open the tab, press ``Ctrl + ` `` to open the bottom panel, then select **ReptClip**.
 
-> **Note:** If there's not enough space to display all the panel tabs, ReptClip might be hidden under the **...** menu. You can drag the ReptClip tab to the beginning of the list to keep it easily accessible.
-
-### The UI
-
-It contains the following sections:
-
-- **Checkboxes (to control what goes in the context; all are ON by default):**
-  - **Project structure:** The relative paths to the project files, along with a line count.
-  - **AI instructions:** Turn this on so the chatbot will know that you are using ReptClip and respond accordingly.
-  - **Files:** Includes attatched files (continue reading to learn how to attach files!)
-
-- **Text boxes:**
-  - **Files to attach:** Specify which files you want to include in the context. Enter relative file paths or glob patterns to match multiple files. Syntax highlighting and suggestions are supported!
-  - **Files to exclude:** Specify which files to exclude from the attached files.
-  - **Output file:** Empty by default. If you provide a relative or absolute path, the context will also be written to that file.
-
-- **Buttons:**
-  - **Context:** Clicking this button copies the context to your clipboard.
-  - **More context:** We'll discuss this later 🙂‚
-  - **Apply Diffs:** Reads the diffs from your clipboard and applies them.
-  - **Button with a counterclockwise arrow icon:** Undoes the last diff (supports up to the last 10 diffs).
-  - **Button with a clockwise arrow icon:** Redoes the last undone diff.
-
-- **Other settings (checkboxes):**
-  - **Copy to clipboard:** Whether to copy the context to the clipboard.
-  - **Show labels:** Uncheck this to hide labels in the UI to save space.
-
-The empty space between the **Apply Diffs** button and the undo button is used to display status messages and errors, including a rough estimate of the generated context's token count (e.g. `~1.2k token(s)`), shown after "Context" or "More Context" finishes.
+> **Note:** If there's not enough space to display all the panel tabs, ReptClip might be hidden under the `...` menu. You can drag the ReptClip tab to the beginning of the list to keep it easily accessible.
 
 ### Step 1: Copy context to clipboard
 
-The context consists of the **Project structure**, **AI instructions**, and **attached files**. All in Markdown.
+By default, the context consists of the **Project structure**, **AI instructions**, **attached files**, and an empty **Prompt** section to put your prompt. All in Markdown.
 
-Use "Files to attach" text box to attach files to the context. You can use relative paths or glob patterns (e.g., `src/**/*.py` to add all Python files in `src`). You will get **live suggestions** and **syntax highlighting** as you type. Press "Enter" or click the "Context" button to copy the context **straight to your clipboard**.
+Use "Files to attach" text box to attach files to the context. You can use relative paths or glob patterns (e.g., `**/*.py` to add all Python files). You will get **live suggestion dropdowns** and **syntax highlighting** as you type. Press "Enter" or click the "Context" button to copy the context **straight to your clipboard**.
 
 If no files are selected, ReptClip shows "No files attached." and keeps the remaining enabled context sections.
 
@@ -67,12 +46,12 @@ Didn't like it? Click the Undo button. Changed your mind? Click the Redo button!
 If the chatbot wants to see more files or search the project, it will generate a code block containing the following custom commands:
 
 - **`cat <path>`** To read a file.
+- **`read-lines <path> <start_line> [end_line]`** To read sections of a file.
 - **`grep <flags> <pattern> [paths...]`**: To search across the project with [grepts](https://github.com/ahmadawais/grepts).
-- **`read-lines <path> <start_line> [end_line]`** To read from a start line to an optional stop line (end of the file if not specified)
 
-You can copy that block and click the "More Context" button to copy output to the clipboard, and paste it back to the chatbot.
+You can copy that block and click the "More Context" button to copy the output to the clipboard, and paste it back to the chatbot.
 
-### Next time you come back...
+### Key features
 
 **The UI state is remembered per project**, so you don't have to re-enter them every time, and they won't be mixed up with other projects.
 
@@ -80,11 +59,13 @@ You can copy that block and click the "More Context" button to copy output to th
 
 ### Why you can trust it
 
-ReptClip only touches files that are tracked by git. Anything your `.gitignore` files (at any depth) exclude is completely off-limits, for reading, searching, writing, creating, or deleting. `.git` folders are always off-limits too. Changing a `.gitignore` file always asks for confirmation first, since that can un-ignore something that was previously protected. If something ever goes wrong anyway, you can simply discard the changes with git.
+**ReptClip only touches files that are tracked by git.** Anything your `.gitignore` files (at any depth) exclude is completely off-limits, for reading, searching, writing, creating, deleting, whatever. `.git` folders are always off-limits too.
 
-See [Safety measures for context](#safety-measures-for-context) and [Safety measures for applying diffs](#safety-measures-for-applying-diffs) for the full details.
+Changing a `.gitignore` file always asks for confirmation first, since that can un-ignore something that was previously protected. If something ever goes wrong anyway, you can simply discard the changes with git.
 
-## Features
+And that's just the beginning. Continue reading to discover everything ReptClip has to offer!
+
+## Features (detailed)
 
 ### Preparing Context
 
@@ -281,15 +262,32 @@ Here's what actually happens, in order:
 
 This also shows a rough token estimate.
 
-### Optimized UI
+## The UI
 
-- **Side-by-side text areas:** The "Files to attach" and "Files to exclude" text areas are displayed side by side to make efficient use of screen space. When the available width is insufficient, they automatically switch to a vertical layout. You can drag the divider between them to adjust their relative widths. Both text areas automatically expand as you type and maintain the same height, eliminating the need for manual resizing.
+It contains the following sections:
 
-- **Always-visible controls:** The "Context", "More Context", and "Apply Diffs" buttons, along with the status area and undo/redo buttons, remain visible at all times. When the available space is limited, the rest of the content becomes scrollable instead. This keeps the most important controls accessible without requiring you to scroll.
+- **Checkboxes (to control what goes in the context; all are ON by default):**
+  - **Project structure:** The relative paths to the project files, along with a line count.
+  - **AI instructions:** Turn this on so the chatbot will know that you are using ReptClip and respond accordingly.
+  - **Files:** Includes attatched files (continue reading to learn how to attach files!)
 
-- **Overflow-free status area:** Status messages and errors wrap automatically instead of overflowing their container. If the content exceeds the available space, the status area becomes scrollable. This is rarely necessary, as there is usually enough room to display the messages.
+- **Text boxes:**
+  - **Files to attach:** Specify which files you want to include in the context. Enter relative file paths or glob patterns to match multiple files. Syntax highlighting and suggestions are supported!
+  - **Files to exclude:** Specify which files to exclude from the attached files.
+  - **Output file:** Empty by default. If you provide a relative or absolute path, the context will also be written to that file.
 
-- **Show labels checkbox:** You can uncheck "Show labesl" in "Other settings" to hide labels to save space. Useful when you have memorized the UI layout and needs more vertical space.
+- **Buttons:**
+  - **Context:** Clicking this button copies the context to your clipboard.
+  - **More context:** We'll discuss this later 🙂‚
+  - **Apply Diffs:** Reads the diffs from your clipboard and applies them.
+  - **Button with a counterclockwise arrow icon:** Undoes the last diff (supports up to the last 10 diffs).
+  - **Button with a clockwise arrow icon:** Redoes the last undone diff.
+
+- **Other settings (checkboxes):**
+  - **Copy to clipboard:** Whether to copy the context to the clipboard.
+  - **Show labels:** Uncheck this to hide labels in the UI to save space.
+
+The empty space between the **Apply Diffs** button and the undo button is used to display status messages and errors, including a rough estimate of the generated context's token count (e.g. `~1.2k token(s)`), shown after "Context" or "More Context" finishes.
 
 It works wherever you place it. For example, in the bottom panel:
 
@@ -302,6 +300,18 @@ In the sidebar:
 Or even below the Explorer so your files, terminal, and ReptClip are visible at the same time! Like this:
 
 <img width="1362" alt="ReptClip below the explorer" src="https://github.com/user-attachments/assets/e7a2e4ee-8573-461d-997f-e5ab64824e48" />
+
+### UI Features
+
+- **Side-by-side text areas:** The "Files to attach" and "Files to exclude" text areas are displayed side by side to make efficient use of screen space. When the available width is insufficient, they automatically switch to a vertical layout. You can drag the divider between them to adjust their relative widths. Both text areas automatically expand as you type and maintain the same height, eliminating the need for manual resizing.
+
+- **Always-visible controls:** The "Context", "More Context", and "Apply Diffs" buttons, along with the status area and undo/redo buttons, remain visible at all times. When the available space is limited, the rest of the content becomes scrollable instead. This keeps the most important controls accessible without requiring you to scroll.
+
+- **Overflow-free status area:** Status messages and errors wrap automatically instead of overflowing their container. If the content exceeds the available space, the status area becomes scrollable. This is rarely necessary, as there is usually enough room to display the messages.
+
+- **Show labels checkbox:** You can uncheck "Show labels" in "Other settings" to hide labels to save space. Useful when you have memorized the UI layout and needs more vertical space.
+
+- **Adaptive:** It works wherever you place it.
 
 ## Settings
 
