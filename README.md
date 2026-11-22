@@ -19,7 +19,7 @@ Zoomed in:
 
 <img width="1787" alt="ReptClip zoomed in" src="https://github.com/user-attachments/assets/45770704-d55a-4e06-8fb8-6673bab8dd5b" />
 
-To open the tab, press ``Ctrl + ` `` to open the bottom panel, then select **ReptClip**.
+You can move it anywhere you want (like the sidebar), and the ReptClip UI will adapt!
 
 ### Step 1: Copy context to clipboard
 
@@ -31,11 +31,11 @@ If no files are selected, ReptClip shows "No files attached." and keeps the rema
 
 ### Step 2: Paste context to your chatbot, along with your prompt
 
-The chatbot will generate the diffs for you, according to the instructions provided in the context.
+The chatbot will generate the diffs in a single code block, according to the instructions provided in the context.
 
 ### Step 3: Apply the generated diffs
 
-The chatbot outputs all diffs in a single code block covering line removals, additions, edits, and updates, file moves or renames, file creation, and file deletion. Copy the block and click **Apply Diffs** to apply the changes.
+The chatbot outputs all diffs in a single code block covering line removals, additions, edits, updates, file moves or renames, file creation, and file deletion. Copy the block and click **Apply Diffs** to apply the changes.
 
 Didn't like it? Click the Undo button. Changed your mind? Click the Redo button!
 
@@ -49,17 +49,20 @@ If the chatbot wants to see more files or search the project, it will generate a
 
 You can copy that block and click the "More Context" button to copy the output to the clipboard, and paste it back to the chatbot.
 
-### Key features
+### Other key features
 
-**The UI state is remembered per project**, so you don't have to re-enter them every time, and they won't be mixed up with other projects.
-
-> **A little behind-the-scenes:** The video demo you see above was captured, edited, and exported using [GiffyPy](https://github.com/effessdev/GiffyPy), an all-in-one screen recording and video editing tool that I built myself, specifically for GitHub READMEs!
+- **Estimated token count:** Displayed in the status.
+- **Hide labels:** To save screen space once you memorize the layout.
+- **UI state remembered per project:** You don't have to re-enter them every time, and they won't be mixed up with other projects.
+- **Context customization:** Each section in the context can be easily toggled on/off using checkboxes.
+- **Zero dependencies:** ReptClip doesn't need Git initialized (a `.git` folder), or Git installed in your system.
+- **And more!** Continue reading...
 
 ### Why you can trust it
 
-**ReptClip only touches files that are tracked by git.** Anything your `.gitignore` files (at any depth) exclude is completely off-limits, for reading, searching, writing, creating, deleting, whatever. `.git` folders are always off-limits too.
+**ReptClip only touches files that are tracked by git.** Anything your `.gitignore` files (at any depth) exclude is completely off-limits, for reading, searching, writing, creating, deleting, whatever. `.git` folders are always off-limits too. If something ever goes wrong anyway, you can simply discard the changes with git, since they are tracked.
 
-Changing a `.gitignore` file always asks for confirmation first, since that can un-ignore something that was previously protected. If something ever goes wrong anyway, you can simply discard the changes with git.
+If the AI attempts to touch a `.gitignore` file, ReptClip for confirmation first, since that can un-ignore something that was previously protected.
 
 And that's just the beginning. Continue reading to discover everything ReptClip has to offer!
 
@@ -331,4 +334,8 @@ Open VS Code's Settings (`Ctrl+,` / `Cmd+,`) and search for **"ReptClip"** to co
 
 **Q: Why can't I see the ReptClip tab in the bottom panel?**
 
-**A:** If there's not enough space to display all panel tabs, ReptClip may be hidden under the `...` menu. To keep it easily accessible, simply drag its tab to the beginning of the list.
+**A:** If there's not enough space to display all panel tabs, ReptClip may be hidden under the `...` menu. To keep it easily accessible, simply drag its tab to the beginning of the list. You can open the bottom panel using ``Ctrl + ` ``.
+
+## A little behind-the-scenes
+
+The video demos you see above were captured, edited, and exported using [GiffyPy](https://github.com/effessdev/GiffyPy), an all-in-one screen recording and video editing tool that I built myself, specifically for GitHub READMEs! Feel free to check it out!
