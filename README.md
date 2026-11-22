@@ -21,9 +21,10 @@ To open the tab, press ``Ctrl + ` `` to open the bottom panel, then select **Rep
 
 It contains the following sections:
 
-- **Checkboxes (all are ON by default):**
-  - **Copy to clipboard:** Whether to copy the context to the clipboard.
-  - **Other checkboxes:** Used to toggle sections within the context (e.g., if you don't want the project structure in the context, disable "Project structure" checkbox to remove that section).
+- **Checkboxes (to control what goes in the context; all are ON by default):**
+  - **Project structure:** The relative paths to the project files, along with a line count.
+  - **AI instructions:** Turn this on so the chatbot will know that you are using ReptClip and respond accordingly.
+  - **Files:** Includes attatched files (continue reading to learn how to attach files!)
 
 - **Text boxes:**
   - **Files to attach:** Specify which files you want to include in the context. Enter relative file paths or glob patterns to match multiple files. Syntax highlighting and suggestions are supported!
@@ -37,11 +38,15 @@ It contains the following sections:
   - **Button with a counterclockwise arrow icon:** Undoes the last diff (supports up to the last 10 diffs).
   - **Button with a clockwise arrow icon:** Redoes the last undone diff.
 
+- **Other settings (checkboxes):**
+  - **Copy to clipboard:** Whether to copy the context to the clipboard.
+  - **Show labels:** Uncheck this to hide labels in the UI to save space.
+
 The empty space between the **Apply Diffs** button and the undo button is used to display status messages and errors.
 
 ### Step 1: Copy context to clipboard
 
-The context consists of the **Project structure**, **AI instructions**, and **attached files**. All in Markdown. [See example context](#preparing-context)
+The context consists of the **Project structure**, **AI instructions**, and **attached files**. All in Markdown.
 
 Use "Files to attach" text box to attach files to the context. You can use relative paths or glob patterns (e.g., `src/**/*.py` to add all Python files in `src`). You will get **live suggestions** and **syntax highlighting** as you type. Press "Enter" or click the "Context" button to copy the context **straight to your clipboard**.
 
@@ -279,6 +284,8 @@ Here's what actually happens, in order:
 - **Always-visible controls:** The "Context", "More Context", and "Apply Diffs" buttons, along with the status area and undo/redo buttons, remain visible at all times. When the available space is limited, the rest of the content becomes scrollable instead. This keeps the most important controls accessible without requiring you to scroll.
 
 - **Overflow-free status area:** Status messages and errors wrap automatically instead of overflowing their container. If the content exceeds the available space, the status area becomes scrollable. This is rarely necessary, as there is usually enough room to display the messages.
+
+- **Show labels checkbox:** You can uncheck "Show labesl" in "Other settings" to hide labels to save space. Useful when you have memorized the UI layout and needs more vertical space.
 
 ## Settings
 
