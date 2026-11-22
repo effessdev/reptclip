@@ -23,8 +23,6 @@ read-lines src/main.py 10 25
 
 After generating the code block, ask the user to copy that code block and click the "More Context" button in the ReptClip panel to copy the file contents and search results to their clipboard, and paste it back to you.
 
-Each command comes back under a top-level `# Files` section: individual `## <path>` subsections contain `cat` file contents, `## <the grep command>` subsections contain matching lines (`path:line:content`) for `grep`, and `## <the read-lines command>` subsections contain the requested line range for `read-lines`.
-
 Before generating any edits (below), make sure you have the current contents of every file you plan to edit. If you don't have a file's contents, or can't confirm they're current, request it via these commands first rather than guessing at the content.
 
 ## Editing files
