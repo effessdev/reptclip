@@ -288,19 +288,19 @@ It contains the following sections:
   - **Copy to clipboard:** Whether to copy the context to the clipboard.
   - **Show labels:** Uncheck this to hide labels in the UI to save space.
 
-The empty space between the **Apply Diffs** button and the undo button is used to display status messages and errors, including a rough estimate of the generated context's token count (e.g. `~1.2k token(s)`), shown after "Context" or "More Context" finishes.
+The space between the **Apply Diffs** button and the undo button is used to display status messages and errors, including a rough estimate of the generated context's token count (e.g., `~1.2k token(s)`), shown after "Context" or "More Context" finishes.
 
 It works wherever you place it. For example, in the bottom panel:
 
-<img width="1356" alt="ReptClip in the panel" src="https://github.com/user-attachments/assets/ffdc154a-7d05-49d9-a65d-ac92b34d9bcd" />
+<img width="1356" alt="ReptClip in the bottom panel" src="https://github.com/user-attachments/assets/b3d5f2e4-b3db-45be-abad-31b1d349dec8" />
 
 In the sidebar:
 
-<img width="1360" alt="ReptClip in the sidebar" src="https://github.com/user-attachments/assets/220ccc25-c858-420c-ab67-d5c4b6e7c352" />
+<img width="1360" alt="ReptClip in the sidebar" src="https://github.com/user-attachments/assets/4de6a707-cc93-4077-9084-9d1246379015" />
 
 Or even below the Explorer so your files, terminal, and ReptClip are visible at the same time! Like this:
 
-<img width="1362" alt="ReptClip below the explorer" src="https://github.com/user-attachments/assets/e7a2e4ee-8573-461d-997f-e5ab64824e48" />
+<img width="1362" alt="ReptClip below the explorer" src="https://github.com/user-attachments/assets/902d9b9d-0b5f-4a2b-8ee7-6f9777de8edd" />
 
 ### UI Features
 
