@@ -1,7 +1,6 @@
 import * as fs from "fs/promises";
 
 const MAX_BYTES = 1024 * 1024; // 1 MB, same threshold as the CLI.
-const BINARY_SNIFF_BYTES = 8000;
 
 export interface SafeReadResult {
   skipped: boolean;
@@ -30,17 +29,79 @@ export async function readFileSafe(absPath: string): Promise<SafeReadResult> {
     return { skipped: true, reason: "File skipped: appears to be binary." };
   }
 
-  return { skipped: false, content: buffer.toString("utf8") };
+  const content = decodeUtf8(buffer);
+  if (content === undefined) {
+    return {
+      skipped: true,
+      reason:
+        "File skipped: not valid UTF-8 text (the file is probably in a legacy encoding).",
+    };
+  }
+
+  return { skipped: false, content };
 }
 
+/**
+ * NUL-byte sniff over the whole buffer. Sniffing only the first 8000 bytes
+ * (the size of git's binary heuristic window) lets a file with a NUL past the
+ * window through as text.
+ */
 function looksBinary(buffer: Buffer): boolean {
-  const len = Math.min(buffer.length, BINARY_SNIFF_BYTES);
-  for (let i = 0; i < len; i++) {
+  for (let i = 0; i < buffer.length; i++) {
     if (buffer[i] === 0) {
       return true;
     }
   }
   return false;
+}
+
+/**
+ * Strict UTF-8 decode. `Buffer#toString("utf8")` silently turns every
+ * invalid byte into U+FFFD, which is how a Windows-1251 file used to arrive in
+ * the prompt as a wall of `�`; a file that is not valid UTF-8 is reported as
+ * skipped instead.
+ */
+function decodeUtf8(buffer: Buffer): string | undefined {
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(buffer);
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Streaming UTF-8 + NUL check for a file that is not going to be embedded
+ * whole (grep results). Unlike `readFileSafe` there is no 1 MB embed cap: a
+ * large text file can still be searched, it just cannot be pasted in full.
+ */
+export async function isUtf8TextFile(absPath: string): Promise<boolean> {
+  let handle;
+  try {
+    handle = await fs.open(absPath, "r");
+  } catch {
+    return false;
+  }
+  const decoder = new TextDecoder("utf-8", { fatal: true });
+  const buffer = Buffer.alloc(64 * 1024);
+  try {
+    for (;;) {
+      const { bytesRead } = await handle.read(buffer, 0, buffer.length, null);
+      if (bytesRead === 0) {
+        break;
+      }
+      const chunk = buffer.subarray(0, bytesRead);
+      if (chunk.includes(0)) {
+        return false;
+      }
+      decoder.decode(chunk, { stream: true });
+    }
+    decoder.decode();
+    return true;
+  } catch {
+    return false;
+  } finally {
+    await handle.close().catch(() => undefined);
+  }
 }
 
 function formatBytes(bytes: number): string {
@@ -82,7 +143,10 @@ export async function countFileLines(
     return undefined;
   }
 
-  const content = buffer.toString("utf8");
+  const content = decodeUtf8(buffer);
+  if (content === undefined) {
+    return undefined;
+  }
   if (content.length === 0) {
     return 0;
   }

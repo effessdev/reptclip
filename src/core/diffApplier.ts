@@ -113,11 +113,103 @@ const escapeRegExp = (value: string): string =>
 // Filesystem helpers
 // ============================================================================
 
-async function readFileIfExists(absPath: string): Promise<string | undefined> {
+/**
+ * Files this tool is willing to edit in place. Context is capped at 1 MB and a
+ * diff is generated from that context, so anything far above it is either a
+ * mistake or a binary; refusing beats reading hundreds of megabytes into
+ * memory just to fail later.
+ */
+const MAX_EDIT_BYTES = 8 * 1024 * 1024;
+
+/**
+ * Checks what a write to `absPath` would really touch, before any plan is
+ * built and again right before the edit. A path that does not exist is fine
+ * (the diff creates it). Anything else that is not a regular file is refused,
+ * and so is a file with more than one hard link: editing one name would
+ * silently rewrite every other name, including `.git/config`, `.env`, or a
+ * gitignored file reached by a link the path-based guard cannot see.
+ */
+async function assertWritableTarget(
+  absPath: string,
+  label: string,
+): Promise<void> {
+  let info: import("fs").Stats;
+  try {
+    info = await fs.stat(absPath);
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === "ENOENT") {
+      return;
+    }
+    if (code === "ENOTDIR") {
+      throw new Error(
+        `Cannot edit ${label}: a parent path is not a directory. Nothing was applied.`,
+      );
+    }
+    throw new Error(
+      `Cannot edit ${label}: ${(err as Error).message}. Nothing was applied.`,
+    );
+  }
+  if (info.isDirectory()) {
+    throw new Error(
+      `Cannot edit ${label}: it is a directory, not a file. Nothing was applied.`,
+    );
+  }
+  if (!info.isFile()) {
+    throw new Error(
+      `Cannot edit ${label}: it is not a regular file. Nothing was applied.`,
+    );
+  }
+  if (info.nlink > 1) {
+    throw new Error(
+      `Cannot edit ${label}: it is a hard link with ${info.nlink} names. ` +
+        "Editing it would silently change every other name, so remove the link first.",
+    );
+  }
+}
+
+/**
+ * Reads a file a diff wants to edit. Only "there is no such file" (ENOENT)
+ * means "new file": a directory, a locked file, or a permission error must
+ * abort the apply instead of being treated as an absent target and
+ * overwritten with `createFile(overwrite: true)`.
+ *
+ * `enforceEditLimit` is off for undo/redo: a checkpoint must be restorable
+ * even when the file grew past the limit after it was recorded.
+ */
+async function readFileIfExists(
+  absPath: string,
+  enforceEditLimit: boolean = true,
+): Promise<string | undefined> {
+  let stat: import("fs").Stats;
+  try {
+    stat = await fs.stat(absPath);
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === "ENOENT") {
+      return undefined;
+    }
+    throw new Error(
+      `Cannot read ${absPath}: ${(err as Error).message}. Nothing was applied.`,
+    );
+  }
+  if (!stat.isFile()) {
+    throw new Error(
+      `Cannot edit ${absPath}: it is not a regular file. Nothing was applied.`,
+    );
+  }
+  if (enforceEditLimit && stat.size > MAX_EDIT_BYTES) {
+    throw new Error(
+      `Cannot edit ${absPath}: it is ${(stat.size / (1024 * 1024)).toFixed(1)} MB, ` +
+        `over the ${MAX_EDIT_BYTES / (1024 * 1024)} MB limit for applied diffs.`,
+    );
+  }
   try {
     return await fs.readFile(absPath, "utf8");
-  } catch {
-    return undefined;
+  } catch (err) {
+    throw new Error(
+      `Cannot read ${absPath}: ${(err as Error).message}. Nothing was applied.`,
+    );
   }
 }
 
@@ -149,6 +241,12 @@ async function hasDiskChanges(
  * segment. For example, `.env::$DATA` becomes `.env`.
  */
 function stripAdsSuffix(relative: string): string {
+  // NTFS alternate data streams are a Windows concept; on POSIX a colon is an
+  // ordinary filename character, so stripping it there would judge `a:b`
+  // against rules written for `a`.
+  if (process.platform !== "win32") {
+    return relative;
+  }
   const segments = relative.split(/[\\/]+/).filter(Boolean);
 
   if (segments.length === 0) {
@@ -167,6 +265,50 @@ function stripAdsSuffix(relative: string): string {
 function isGitignoreFile(relative: string): boolean {
   const base = stripAdsSuffix(relative).split("/").pop()!.toLowerCase();
   return base === ".gitignore";
+}
+
+/**
+ * Whether `absPath` is the *same file* as a `.gitignore`, without being
+ * spelled that way. Symbolic links and junctions resolve through
+ * `realRelPath`; hard links do not — they are one inode under two names — so
+ * the only way to see them is to compare the inode with every `.gitignore`
+ * on the target's ancestor chain.
+ */
+async function aliasesGitignoreFile(
+  absPath: string,
+  rootDir: string,
+): Promise<boolean> {
+  let target;
+  try {
+    target = await fs.stat(absPath, { bigint: true });
+  } catch {
+    return false; // a path that does not exist yet cannot be an alias
+  }
+  if (!target.isFile() || target.ino === 0n) {
+    return false;
+  }
+  const root = path.resolve(rootDir);
+  let dir = path.dirname(path.resolve(absPath));
+  for (;;) {
+    try {
+      const candidate = await fs.stat(path.join(dir, ".gitignore"), {
+        bigint: true,
+      });
+      if (candidate.dev === target.dev && candidate.ino === target.ino) {
+        return true;
+      }
+    } catch {
+      // No .gitignore at this level; keep walking up.
+    }
+    if (dir === root) {
+      return false;
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) {
+      return false;
+    }
+    dir = parent;
+  }
 }
 
 /** Whether `candidate` is `root` itself or lives inside it, using OS case rules. */
@@ -324,10 +466,11 @@ async function isSameFile(first: string, second: string): Promise<boolean> {
 async function readCurrentContent(
   absPath: string,
   overrides: Map<string, string> | undefined,
+  enforceEditLimit: boolean = true,
 ): Promise<string | undefined> {
   return (
     (await findBufferOverride(overrides, absPath)) ??
-    (await readFileIfExists(absPath))
+    (await readFileIfExists(absPath, enforceEditLimit))
   );
 }
 
@@ -624,9 +767,11 @@ function findMatch(
  * affected files in the editor. Shared by applyDiffs and applySnapshot.
  */
 async function commitPlans(
+  rootDir: string,
   plans: Iterable<FilePlan>,
   assertBuffersCurrent?: () => void,
 ): Promise<{ modified: number; created: number; deleted: number }> {
+  const items = Array.from(plans);
   const edit = new vscode.WorkspaceEdit();
 
   let modified = 0;
@@ -636,7 +781,7 @@ async function commitPlans(
   // Files whose edits land in an in-memory document buffer.
   const touched: vscode.Uri[] = [];
 
-  for (const plan of plans) {
+  for (const plan of items) {
     const uri = vscode.Uri.file(plan.absPath);
 
     if (plan.deleted) {
@@ -664,6 +809,22 @@ async function commitPlans(
   // Revalidate immediately before applying the edit. Opening documents above
   // awaited, so buffers may have changed since the earlier validation.
   assertBuffersCurrent?.();
+  // Last line of defence, after every await and dialog: the path still has to
+  // resolve inside the workspace and outside `.git`, and no other hard-link
+  // name may have appeared. A directory swapped for a junction while a modal
+  // was open would otherwise carry the write outside.
+  for (const plan of items) {
+    if (plan.deleted) {
+      continue;
+    }
+    await assertWritableTarget(plan.absPath, plan.relPath);
+    const resolved = await resolveFile(rootDir, plan.relPath);
+    if (resolved.realRelPath.split("/").includes(".git")) {
+      throw new Error(
+        `Cannot edit ${plan.relPath}: it now resolves inside .git. Nothing was applied.`,
+      );
+    }
+  }
 
   const applied = await vscode.workspace.applyEdit(edit);
 
@@ -764,6 +925,14 @@ async function resolveAndValidatePaths(
     const target = await resolveFile(rootDir, block.file);
     targets.push(target);
 
+    // Deleting or moving one name of a hard link leaves the other names
+    // intact; only operations that rewrite content go through the
+    // writable-target check (the destination of a move is created, and an
+    // existing destination is rejected by the plan itself).
+    if (block.kind === undefined) {
+      await assertWritableTarget(target.absPath, block.file);
+    }
+
     const verdict = await isEmbeddable(stripAdsSuffix(block.file));
 
     if (!verdict.ok) {
@@ -812,20 +981,38 @@ async function resolveAndValidatePaths(
  * `.gitignore` file.
  */
 async function validateGitignoreEdits(
+  rootDir: string,
   blocks: DiffBlock[],
+  targets: { absPath: string; realRelPath: string }[],
+  destinations: ({ absPath: string; realRelPath: string } | undefined)[],
   options: ApplyOptions,
 ): Promise<void> {
+  // Judge the path the write really lands on, not just the spelling: a link
+  // named `ignore-mirror` can point at `.gitignore`, and editing it then
+  // un-ignores files with no dialog at all.
   const gitignoreTouches = new Set<string>();
 
-  for (const block of blocks) {
-    if (isGitignoreFile(block.file)) {
+  for (let index = 0; index < blocks.length; index += 1) {
+    const block = blocks[index];
+    const target = targets[index];
+
+    if (
+      isGitignoreFile(block.file) ||
+      isGitignoreFile(target.realRelPath) ||
+      (await aliasesGitignoreFile(target.absPath, rootDir))
+    ) {
       gitignoreTouches.add(block.file);
     }
+
+    const destination = destinations[index];
 
     if (
       block.kind === "move" &&
       block.destination &&
-      isGitignoreFile(block.destination)
+      destination &&
+      (isGitignoreFile(block.destination) ||
+        isGitignoreFile(destination.realRelPath) ||
+        (await aliasesGitignoreFile(destination.absPath, rootDir)))
     ) {
       gitignoreTouches.add(block.destination);
     }
@@ -904,9 +1091,23 @@ async function applyMoveBlock(
     throw new Error(`Cannot move ${block.file}: the file does not exist.`);
   }
 
-  if (destination.absPath.toLowerCase() === plan.absPath.toLowerCase()) {
+  if (destination.absPath === plan.absPath) {
     throw new Error(
       `Cannot move ${block.file}: source and destination are the same path.`,
+    );
+  }
+
+  // On a case-insensitive volume `foo.ts` and `Foo.ts` are one file, so a
+  // case-only rename cannot be expressed as create+delete. Say that plainly
+  // instead of claiming the paths are identical.
+  if (
+    destination.absPath.toLowerCase() === plan.absPath.toLowerCase() &&
+    (await isSameFile(plan.absPath, destination.absPath))
+  ) {
+    throw new Error(
+      `Cannot move ${block.file} to ${block.destination}: the names differ only ` +
+        "by letter case, and this filesystem treats them as the same file. " +
+        "Rename it in your editor instead.",
     );
   }
 
@@ -1078,7 +1279,7 @@ export async function applyDiffs(
   );
 
   // 3. Confirm potentially dangerous .gitignore changes.
-  await validateGitignoreEdits(blocks, options);
+  await validateGitignoreEdits(rootDir, blocks, targets, destinations, options);
 
   // 4. Simulate all operations without modifying files.
   const { plans, fuzzy } = await buildFilePlans(
@@ -1096,6 +1297,7 @@ export async function applyDiffs(
   options.assertBuffersCurrent?.();
 
   const { modified, created, deleted } = await commitPlans(
+    rootDir,
     plans.values(),
     options.assertBuffersCurrent,
   );
@@ -1139,6 +1341,7 @@ export async function applySnapshot(
     const currentContent = await readCurrentContent(
       absPath,
       options.bufferOverrides,
+      false,
     );
 
     const currentExists = currentContent !== undefined;
@@ -1162,6 +1365,11 @@ export async function applySnapshot(
 
       continue;
     }
+
+    // Undo/redo writes through whatever the path is now; a file that became a
+    // hard link since the checkpoint was recorded must not be rewritten
+    // through the other name (that is how `.env` used to be clobbered).
+    await assertWritableTarget(absPath, file.relPath);
 
     plans.push({
       absPath,
@@ -1197,6 +1405,7 @@ export async function applySnapshot(
   options.assertBuffersCurrent?.();
 
   const { modified, created, deleted } = await commitPlans(
+    rootDir,
     plans,
     options.assertBuffersCurrent,
   );

@@ -1,3 +1,5 @@
+import { fenceFor, fencedSection } from "./fence";
+
 export interface BuildMarkdownInput {
   allFiles: string[];
   attachedFiles: string[];
@@ -46,7 +48,9 @@ export function buildMarkdown(input: BuildMarkdownInput): string {
     const heading = input.lineCounts
       ? "# Project structure\n\nThe number in parentheses after a file is its raw line count (including blank lines); binary or unreadable files are listed without one."
       : "# Project structure";
-    parts.push(`${heading}\n\n\`\`\`\n${lines.join("\n")}\n\`\`\``);
+    const listing = lines.join("\n");
+    const fence = fenceFor(listing);
+    parts.push(`${heading}\n\n${fence}\n${listing}\n${fence}`);
   }
 
   if (input.includeDiffFormat) {
@@ -54,10 +58,9 @@ export function buildMarkdown(input: BuildMarkdownInput): string {
   }
 
   if (input.includeFiles) {
-    const fileSections = input.attachedFiles.map((file) => {
-      const content = input.fileContents[file] ?? "";
-      return `## ${file}\n\n\`\`\`\n${content}\n\`\`\``;
-    });
+    const fileSections = input.attachedFiles.map((file) =>
+      fencedSection(file, input.fileContents[file] ?? "", false),
+    );
     parts.push(
       `# Files${
         fileSections.length > 0
