@@ -13,11 +13,11 @@ https://github.com/user-attachments/assets/7511352d-5db7-4e2f-8182-970405924406
 
 Installing the extension adds a **ReptClip** tab to the bottom panel in VS Code. This is where everything happens:
 
-{I'll add image soon!}
+<img width="1917" alt="ReptClip" src="https://github.com/user-attachments/assets/c12854f6-9928-483c-a95f-35e20cfb83e6" />
 
 Zoomed in:
 
-{I'll add this later as well}
+<img width="1787" alt="ReptClip zoomed in" src="https://github.com/user-attachments/assets/45770704-d55a-4e06-8fb8-6673bab8dd5b" />
 
 To open the tab, press ``Ctrl + ` `` to open the bottom panel, then select **ReptClip**.
 
