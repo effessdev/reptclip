@@ -31,6 +31,8 @@ export interface GenerateResult {
   markdown: string;
   allFiles: string[];
   attachedFiles: string[];
+  /** Rough chars/4 estimate of the final markdown's token count, for the status line. */
+  tokenCount: number;
 }
 
 /** Messages sent from the extension host to the webview. */
@@ -49,6 +51,7 @@ export type HostToWebviewMessage =
       fileCount: number;
       copiedToClipboard: boolean;
       writtenToFile: boolean;
+      tokenCount: number;
       searchCount?: number;
       searchResultCount?: number;
     }

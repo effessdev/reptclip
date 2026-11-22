@@ -259,6 +259,7 @@ export class ReptclipViewProvider implements vscode.WebviewViewProvider {
                 fileCount: result.attachedFiles.length,
                 copiedToClipboard: message.state.clipboard,
                 writtenToFile: message.state.outputFile.trim().length > 0,
+                tokenCount: result.tokenCount,
               });
             } catch (err) {
               const message_ = err instanceof Error ? err.message : String(err);
@@ -306,6 +307,7 @@ export class ReptclipViewProvider implements vscode.WebviewViewProvider {
                 fileCount: result.attachedFiles.length,
                 copiedToClipboard: message.state.clipboard,
                 writtenToFile: message.state.outputFile.trim().length > 0,
+                tokenCount: result.tokenCount,
                 searchCount: result.searchCount,
                 searchResultCount: result.searchResultCount,
               });

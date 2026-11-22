@@ -8,6 +8,7 @@ import { selectFiles } from "./patternMatcher";
 import { tokenize } from "./tokenizer";
 import { readFileSafe, countFileLines } from "./fileGuards";
 import { buildMarkdown } from "./markdownBuilder";
+import { estimateTokens } from "./tokenEstimator";
 import { GenerateResult, UiState } from "./types";
 
 export async function generateContext(
@@ -228,5 +229,6 @@ async function buildContext(
     markdown,
     allFiles,
     attachedFiles,
+    tokenCount: estimateTokens(markdown),
   };
 }

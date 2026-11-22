@@ -238,6 +238,16 @@
     els.status.classList.toggle("status--error", isError);
   }
 
+  // Compact token count for the status line, e.g. 1234 -> "1.2k", 950 -> "950".
+  function formatTokenCount(count) {
+    if (count < 1000) {
+      return String(count);
+    }
+    const thousands = count / 1000;
+    // Trim a trailing ".0" so exact thousands read as "2k" rather than "2.0k".
+    return `${thousands.toFixed(1).replace(/\.0$/, "")}k`;
+  }
+
   function updateFileControlsVisibility() {
     const shouldShow = els.files.checked;
     els.patternPair.hidden = !shouldShow;
@@ -612,12 +622,17 @@
                 ? "Context written to file"
                 : "Context generated but not written anywhere (please enable Copy to clipboard or specify Ouput file path)";
 
+        const tokenSuffix =
+          message.tokenCount !== undefined
+            ? ` ~${formatTokenCount(message.tokenCount)} token(s).`
+            : "";
+
         setStatus(
           message.searchCount === undefined
             ? message.fileCount === 0
-              ? `${destinationStatus}. No files attached.`
-              : `${destinationStatus}. ${message.fileCount} file(s) included.`
-            : `${destinationStatus}. ${message.fileCount} file(s) included, ${message.searchCount} search(es) run, ${message.searchResultCount ?? 0} result(s) found.`,
+              ? `${destinationStatus}. No files attached.${tokenSuffix}`
+              : `${destinationStatus}. ${message.fileCount} file(s) included.${tokenSuffix}`
+            : `${destinationStatus}. ${message.fileCount} file(s) included, ${message.searchCount} search(es) run, ${message.searchResultCount ?? 0} result(s) found.${tokenSuffix}`,
         );
       } else {
         setStatus(`Error: ${message.error}`, true);

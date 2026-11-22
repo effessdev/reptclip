@@ -3,6 +3,7 @@ import * as fs from "fs/promises";
 import { createEmbeddingGuard } from "./gitignoreScanner";
 import { countFileLines, readFileSafe } from "./fileGuards";
 import { tokenize } from "./tokenizer";
+import { estimateTokens } from "./tokenEstimator";
 import { GenerateResult } from "./types";
 
 /**
@@ -714,12 +715,15 @@ export async function moreContext(
     searchResultCount += result.resultCount;
   }
 
+  const markdown = `# Files\n\n` + sections.join("\n\n") + "\n";
+
   return {
-    markdown: `# Files\n\n` + sections.join("\n\n") + "\n",
+    markdown,
     allFiles: [],
     attachedFiles,
     commandCount: validated.length,
     searchCount,
     searchResultCount,
+    tokenCount: estimateTokens(markdown),
   };
 }
