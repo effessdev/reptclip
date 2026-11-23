@@ -1,7 +1,8 @@
 import * as path from "path";
 import * as fs from "fs/promises";
 import { createEmbeddingGuard } from "./gitignoreScanner";
-import { countFileLines, readFileSafe } from "./fileGuards";
+import { countFileLines, isUtf8TextFile, readFileSafe } from "./fileGuards";
+import { fencedSection } from "./fence";
 import { tokenize } from "./tokenizer";
 import { estimateTokens } from "./tokenEstimator";
 import { GenerateResult } from "./types";
@@ -32,6 +33,15 @@ export type MoreContextCommand =
       endLine?: number;
       line: string;
     };
+
+/**
+ * Catastrophic-backtracking shapes: a quantified group whose body already
+ * contains a quantifier (`(a+)+`, `(a*b)*`, `(a?)+`). grepts runs a JS RegExp
+ * in-process, so one such pattern freezes the editor with no way to interrupt
+ * it. Catching the common shapes turns a hang into a clear error; a creative
+ * pattern can still be slow, which is why `-F` is offered.
+ */
+const NESTED_QUANTIFIER = /\((?:\\.|[^()])*[*+?{](?:\\.|[^()])*\)[+*{]/;
 
 /** The grep flags we support, mapped 1:1 onto grepts' SearchOptions. */
 export interface GrepRequest {
@@ -377,6 +387,12 @@ function parseGrepArgs(args: string[]): GrepRequest {
   if (!request.pattern) {
     throw new Error("grep requires a non-empty pattern");
   }
+  if (!request.fixedStrings && NESTED_QUANTIFIER.test(request.pattern)) {
+    throw new Error(
+      `pattern ${JSON.stringify(request.pattern)} has nested quantifiers, which ` +
+        "can freeze the editor; simplify it or pass -F for a literal search",
+    );
+  }
   return request;
 }
 
@@ -569,6 +585,10 @@ async function runGrep(
   const results = grepts.search(options);
   const lines: string[] = [];
   let resultCount = 0;
+  // grepts decodes files as UTF-8 without validation, so a legacy-encoded file
+  // would come back as mojibake even though `cat` skips it. Apply the same
+  // text check the context pipeline uses, once per matched file.
+  const textFiles = new Map<string, boolean>();
   for (const result of results) {
     const relPath = path
       .relative(rootDir, result.filePath)
@@ -576,6 +596,14 @@ async function runGrep(
       .join("/");
     const verdict = await guard(relPath);
     if (!verdict.ok) {
+      continue;
+    }
+    let isText = textFiles.get(result.filePath);
+    if (isText === undefined) {
+      isText = await isUtf8TextFile(result.filePath);
+      textFiles.set(result.filePath, isText);
+    }
+    if (!isText) {
       continue;
     }
     if (result.matches.some((match) => match.line.includes("\0"))) {
@@ -633,13 +661,7 @@ function sliceLines(
 
 /** One Markdown section; the fence grows past any backtick run in the body. */
 function renderSection(heading: string, body: string): string {
-  const text = body.trimEnd();
-  const longestRun = (text.match(/`+/g) ?? []).reduce(
-    (max, run) => Math.max(max, run.length),
-    0,
-  );
-  const fence = "`".repeat(Math.max(3, longestRun + 1));
-  return `## ${heading}\n\n${fence}\n${text}\n${fence}`;
+  return fencedSection(heading, body);
 }
 
 /**

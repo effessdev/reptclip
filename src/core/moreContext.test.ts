@@ -89,6 +89,20 @@ test("parseMoreContextCommands skips empty lines and exact duplicates", () => {
   assert.equal((commands[1] as any).relPath, "b.ts");
 });
 
+test("parseMoreContextCommands refuses a catastrophic regex shape", () => {
+  assert.throws(
+    () => parseMoreContextCommands('grep "(a+)+$" .'),
+    /nested quantifiers/i,
+  );
+  assert.throws(
+    () => parseMoreContextCommands('grep "(a*b)*c" .'),
+    /nested quantifiers/i,
+  );
+  // A literal search for the same text, and an ordinary alternation, are fine.
+  assert.equal(parseMoreContextCommands('grep -F "(a+)+$" .').length, 1);
+  assert.equal(parseMoreContextCommands('grep "(foo|bar)+" .').length, 1);
+});
+
 test("parseMoreContextCommands throws for unknown command", () => {
   assert.throws(
     () => parseMoreContextCommands("ls -la"),
@@ -220,6 +234,38 @@ test("moreContext runs valid grep command and returns markdown", async () => {
   assert.ok(result.markdown.startsWith("# Files\n\n"));
   assert.ok(result.markdown.includes("## grep TODO example.ts"));
   assert.ok(result.markdown.includes("TODO: fix this"));
+});
+
+test("moreContext leaves a legacy-encoded file out of grep results", async () => {
+  const rootDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), "reptclip-moregrep-enc-"),
+  );
+  // "Привет TOKEN=1" in Windows-1251; the ASCII part still matches the grep.
+  await fs.writeFile(
+    path.join(rootDir, "ru.txt"),
+    Buffer.concat([
+      Buffer.from([0xcf, 0xf0, 0xe8, 0xe2, 0xe5, 0xf2, 0x20]),
+      Buffer.from("TOKEN=1\n", "ascii"),
+    ]),
+  );
+
+  const result = await moreContext(rootDir, "grep TOKEN .");
+  assert.ok(!result.markdown.includes("TOKEN=1"), result.markdown);
+  assert.ok(!result.markdown.includes("\uFFFD"), result.markdown);
+});
+
+test("moreContext keeps grep hits from a text file above the embed limit", async () => {
+  const rootDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), "reptclip-moregrep-big-"),
+  );
+  await fs.writeFile(
+    path.join(rootDir, "big.txt"),
+    "x".repeat(1024 * 1024 + 64) + "\nNEEDLE\n",
+    "utf8",
+  );
+
+  const result = await moreContext(rootDir, "grep NEEDLE big.txt");
+  assert.ok(result.markdown.includes("NEEDLE"), result.markdown.slice(0, 200));
 });
 
 test("moreContext runs read-lines command and returns the requested range", async () => {
