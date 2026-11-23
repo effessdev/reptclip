@@ -6,7 +6,10 @@ import { resolve } from "node:path";
 const source = readFileSync(resolve(__dirname, "getHtml.ts"), "utf8");
 
 test("output file field uses the same stacked-label layout as the other form fields", () => {
-  assert.match(source, /<label\s+for="output">\s*Output file\s*<\/label>/s);
+  assert.match(
+    source,
+    /<label\s+for="output"\s+class="hideable-label">\s*Output file\s*<\/label>/s,
+  );
   assert.match(source, /<input\s+type="text"\s+id="output"/);
   assert.doesNotMatch(source, /<label[^>]*class="output-file"/);
 });
@@ -20,4 +23,11 @@ test("provider reports status in the webview instead of VS Code notifications", 
   assert.doesNotMatch(provider, /vscode\.window\.showErrorMessage/);
   assert.doesNotMatch(provider, /vscode\.window\.showInformationMessage/);
   assert.doesNotMatch(provider, /vscode\.window\.setStatusBarMessage/);
+});
+
+test("status starts with the copy instructions", () => {
+  assert.match(
+    source,
+    /<span id="status"[^>]*>Click "Context" or press Enter inside an input to copy<\/span>/,
+  );
 });

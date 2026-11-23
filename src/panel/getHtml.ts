@@ -28,7 +28,7 @@ export function getHtml(
     <div id="warning" class="warning" hidden>Open a folder to use ReptClip.</div>
 
     <section class="section checkboxes">
-      <label class="hideable-label">Click Context or press enter inside an input to copy</label>
+      <label class="hideable-label">Sections to include in the context</label>
       <label class="checkbox">
         <input type="checkbox" id="structure" />
         <span>Project structure</span>
@@ -99,7 +99,7 @@ export function getHtml(
     <button id="runBtn" type="button">Context</button>
     <button id="moreContextBtn" type="button" title="Run cat/grep commands from the clipboard to embed files and search the project">More Context</button>
     <button id="applyBtn" type="button" title="Read Search/Replace blocks from the clipboard and apply them to the workspace">Apply Diffs</button>
-    <span id="status" class="status" aria-live="polite"></span>
+    <span id="status" class="status" aria-live="polite">Click "Context" or press Enter inside an input to copy</span>
     <span class="undo-redo-group">
       <button id="undoBtn" type="button" title="Undo the last applied diff" aria-label="Undo" disabled>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
