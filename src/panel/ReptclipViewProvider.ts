@@ -22,7 +22,7 @@ import {
   Checkpoint,
 } from "../core/diffApplier";
 import { writeOutputFile } from "../core/outputWriter";
-import { canonicalRootDir, withLock } from "../core/applyQueue";
+import { withLock } from "../core/applyQueue";
 import { collectCandidates, filterCandidates } from "../core/completions";
 import { collectNonIgnoredFiles } from "../core/gitignoreScanner";
 import { tokenize } from "../core/tokenizer";
@@ -729,18 +729,19 @@ export class ReptclipViewProvider implements vscode.WebviewViewProvider {
    * active editor, falling back to the first open workspace folder.
    */
   private getRootDir(): string | undefined {
-    // One project is one directory: opened through a junction, a symlinked
-    // parent, or different casing, it is still the same files, the same undo
-    // history and the same queue.
+    // The workspace path as the user opened it: it addresses the files and it
+    // keys the saved state, the undo history and the buffer lookup. Tying
+    // those to the resolved path would move file operations and storage keys
+    // to a different spelling (and lose the saved state for every folder with
+    // an uppercase letter). Identity — a junction, a symlinked parent, another
+    // casing — is resolved inside the lock, where that is all it is used for.
     const activeUri = vscode.window.activeTextEditor?.document.uri;
     if (activeUri) {
       const folder = vscode.workspace.getWorkspaceFolder(activeUri);
       if (folder) {
-        return canonicalRootDir(folder.uri.fsPath);
+        return folder.uri.fsPath;
       }
     }
-    return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
-      ? canonicalRootDir(vscode.workspace.workspaceFolders[0].uri.fsPath)
-      : undefined;
+    return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
   }
 }

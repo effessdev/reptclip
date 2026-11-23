@@ -19,15 +19,17 @@ const tails = new Map<string, Promise<unknown>>();
  * same files on disk, so locking on the spelled path would not serialize them.
  */
 export function canonicalRootDir(key: string): string {
-  let resolved = key;
   try {
-    resolved = realpathSync.native(key);
+    // Identity, not spelling: `realpath` follows links and returns the casing
+    // stored on disk, so a junction, a symlinked parent and a different casing
+    // all produce one key. Folding case on top of that would merge two
+    // directories a case-sensitive volume keeps apart.
+    return path.normalize(realpathSync.native(key));
   } catch {
     // A path that cannot be resolved keeps its spelling; it will fail later
     // with a clearer error from the operation itself.
+    return path.normalize(key);
   }
-  const normalized = path.normalize(resolved);
-  return process.platform === "win32" ? normalized.toLowerCase() : normalized;
 }
 
 /**

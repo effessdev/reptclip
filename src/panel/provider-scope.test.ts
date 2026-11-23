@@ -246,3 +246,66 @@ test("an Undo queued behind an Apply sees that Apply's checkpoint", async () => 
   assert.ok(undo, "undo result missing");
   assert.equal(undo.ok, true, JSON.stringify(undo));
 });
+
+test("saved state stays keyed by the workspace path as opened", async () => {
+  // A folder whose spelling has uppercase letters is the regression case: a
+  // canonicalised key would be a different string, so the settings saved by an
+  // earlier version would never be found again.
+  const root = await makeRoot("Reptclip-State-");
+  store.clear();
+  mount(root);
+
+  await handler!({
+    type: "stateChanged",
+    state: { pattern: "*.ts", gitignore: true, diffFormat: true },
+  });
+
+  const saved = store.get("reptclip.projectStates") as
+    | Record<string, unknown>
+    | undefined;
+  assert.deepEqual(Object.keys(saved ?? {}), [root]);
+});
+
+test("an apply through a linked workspace still matches the dirty buffer", async (t) => {
+  const real = await makeRoot("reptclip-link-real-");
+  const holder = await makeRoot("reptclip-link-holder-");
+  const link = path.join(holder, "project");
+  try {
+    await fs.symlink(real, link, process.platform === "win32" ? "junction" : "dir");
+  } catch {
+    t.skip("this environment cannot create a directory link");
+    return;
+  }
+  t.after(async () => {
+    await fs.rmdir(link).catch(() => undefined);
+    await fs.rm(holder, { recursive: true, force: true }).catch(() => undefined);
+    await fs.rm(real, { recursive: true, force: true }).catch(() => undefined);
+  });
+
+  await fs.writeFile(path.join(real, "a.txt"), "one\ntwo\n", "utf8");
+  mount(link);
+
+  // The user has the file open through the link, with an unsaved line that is
+  // not on disk. The diff only matches that unsaved text.
+  const bufferPath = path.join(link, "a.txt");
+  fakeVscode.workspace.textDocuments = [
+    {
+      uri: {
+        scheme: "file",
+        fsPath: bufferPath,
+        toString: () => `file://${bufferPath.replace(/\\/g, "/")}`,
+      },
+      isDirty: true,
+      version: 2,
+      getText: () => "two\n",
+    },
+  ];
+
+  clipboardQueue.push(block("a.txt", "two", "TWO"));
+  await handler!({ type: "applyDiffs" });
+
+  const result = posts.find((post) => post.type === "applyResult");
+  assert.equal(result?.ok, true, JSON.stringify(result));
+  assert.equal(await fs.readFile(path.join(real, "a.txt"), "utf8"), "TWO\n");
+  fakeVscode.workspace.textDocuments = [];
+});

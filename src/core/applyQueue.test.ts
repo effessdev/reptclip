@@ -62,9 +62,59 @@ test("withLock keeps the queue alive after a rejected task", async () => {
   assert.equal(await withLock("root", async () => "next"), "next");
 });
 
-test("withLock keys on the real directory, not the spelling", async (t) => {
+test("withLock keys on the directory identity, not the spelling", async (t) => {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "reptclip-lockkey-"));
-  const other = process.platform === "win32" ? dir.toUpperCase() : dir;
+  const holder = await fs.mkdtemp(path.join(os.tmpdir(), "reptclip-locklink-"));
+  const link = path.join(holder, "alias");
+  try {
+    // A junction needs no elevation on Windows; a directory symlink does the
+    // same on POSIX. Case folding alone would not hide a broken key here: the
+    // two spellings differ in more than case.
+    await fs.symlink(dir, link, process.platform === "win32" ? "junction" : "dir");
+  } catch {
+    t.skip("this environment cannot create a directory link");
+    return;
+  }
+  t.after(async () => {
+    await fs.rmdir(link).catch(() => undefined);
+    await fs.rm(holder, { recursive: true, force: true }).catch(() => undefined);
+    await fs.rm(dir, { recursive: true, force: true }).catch(() => undefined);
+  });
+
+  const order: string[] = [];
+  await Promise.all([
+    withLock(dir, async () => {
+      order.push("first:start");
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      order.push("first:end");
+    }),
+    withLock(link, async () => {
+      order.push("second:start");
+      order.push("second:end");
+    }),
+  ]);
+
+  // One directory, so one queue: the second task waits for the first.
+  assert.deepEqual(order, [
+    "first:start",
+    "first:end",
+    "second:start",
+    "second:end",
+  ]);
+});
+
+test("withLock merges case spellings only when they are one directory", async (t) => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "reptclip-lockcase-"));
+  const other = dir.toUpperCase();
+  const sameDirectory = await fs
+    .realpath(other)
+    .then((resolved) => resolved === dir, () => false);
+  if (!sameDirectory) {
+    // A case-sensitive volume keeps `other` apart, so a separate queue is the
+    // correct answer and there is nothing to fold here.
+    t.skip("this filesystem treats the two spellings as different paths");
+    return;
+  }
 
   const order: string[] = [];
   await Promise.all([
@@ -79,17 +129,12 @@ test("withLock keys on the real directory, not the spelling", async (t) => {
     }),
   ]);
 
-  if (process.platform === "win32") {
-    assert.deepEqual(order, [
-      "first:start",
-      "first:end",
-      "second:start",
-      "second:end",
-    ]);
-  } else {
-    // Case-spelled paths are different directories on a case-sensitive FS.
-    assert.equal(order.length, 4);
-  }
+  assert.deepEqual(order, [
+    "first:start",
+    "first:end",
+    "second:start",
+    "second:end",
+  ]);
 });
 
 test("withLock keys on the repository root, not the opened folder", async () => {
