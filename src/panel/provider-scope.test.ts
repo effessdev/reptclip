@@ -13,6 +13,7 @@ import Module from "node:module";
  */
 
 const clipboardQueue: string[] = [];
+const events: string[] = [];
 const posts: any[] = [];
 let handler: ((message: any) => Promise<void>) | undefined;
 const store = new Map<string, unknown>();
@@ -73,6 +74,7 @@ const fakeVscode: any = {
     }),
     onDidChangeConfiguration: () => ({ dispose: () => undefined }),
     async applyEdit(edit: { operations: any[] }) {
+      events.push("edit");
       for (const operation of edit.operations) {
         const [kind, uri] = operation;
         const filePath = uri.fsPath;
@@ -118,6 +120,7 @@ const fakeVscode: any = {
   env: {
     clipboard: {
       async readText() {
+        events.push("clipboard");
         return clipboardQueue.shift() ?? "";
       },
       async writeText() {
@@ -170,6 +173,7 @@ const block = (file: string, search: string, replace: string) =>
 
 function mount(rootDir: string): void {
   clipboardQueue.length = 0;
+  events.length = 0;
   posts.length = 0;
   handler = undefined;
   fakeVscode.workspace.workspaceFolders = [{ uri: { fsPath: rootDir } }];
@@ -308,4 +312,21 @@ test("an apply through a linked workspace still matches the dirty buffer", async
   assert.equal(result?.ok, true, JSON.stringify(result));
   assert.equal(await fs.readFile(path.join(real, "a.txt"), "utf8"), "TWO\n");
   fakeVscode.workspace.textDocuments = [];
+});
+
+test("both clicks read the clipboard before the first edit", async () => {
+  const root = await makeRoot("reptclip-clip-order-");
+  await fs.writeFile(path.join(root, "a.txt"), "one\n", "utf8");
+
+  mount(root);
+  // The second diff does not match anything; it only has to get its own
+  // clipboard entry while the first click is still queued, not after it wrote.
+  clipboardQueue.push(block("a.txt", "one", "ONE"), block("a.txt", "missing", "x"));
+
+  await Promise.all([
+    handler!({ type: "applyDiffs" }),
+    handler!({ type: "applyDiffs" }),
+  ]);
+
+  assert.deepEqual(events.slice(0, 2), ["clipboard", "clipboard"], events.join(" | "));
 });
