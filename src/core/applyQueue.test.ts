@@ -50,16 +50,35 @@ test("withLock does not serialize different keys", async () => {
   assert.equal(peak, 3);
 });
 
-test("withLock keeps the queue alive after a rejected task", async () => {
-  await assert.rejects(
-    () =>
-      withLock("root", async () => {
-        throw new Error("boom");
-      }),
-    /boom/,
-  );
+test("withLock keeps a queued successor alive when the running task fails", async () => {
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const order: string[] = [];
 
-  assert.equal(await withLock("root", async () => "next"), "next");
+  // The successor is queued while the first task still runs, so it is already
+  // waiting when that task rejects — the case that used to strand the queue.
+  const failing = withLock("root", async () => {
+    order.push("first:start");
+    await gate;
+    throw new Error("boom");
+  });
+  const successor = withLock("root", async () => {
+    order.push("second:start");
+    return "next";
+  });
+
+  await settle();
+  assert.deepEqual(order, ["first:start"]);
+
+  release();
+  await assert.rejects(() => failing, /boom/);
+  assert.equal(await successor, "next");
+  assert.deepEqual(order, ["first:start", "second:start"]);
+
+  // A call made after the rejection still runs too.
+  assert.equal(await withLock("root", async () => "later"), "later");
 });
 
 test("withLock keys on the directory identity, not the spelling", async (t) => {
