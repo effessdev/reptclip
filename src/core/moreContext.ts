@@ -38,10 +38,102 @@ export type MoreContextCommand =
  * Catastrophic-backtracking shapes: a quantified group whose body already
  * contains a quantifier (`(a+)+`, `(a*b)*`, `(a?)+`). grepts runs a JS RegExp
  * in-process, so one such pattern freezes the editor with no way to interrupt
- * it. Catching the common shapes turns a hang into a clear error; a creative
- * pattern can still be slow, which is why `-F` is offered.
+ * it. Catching these turns a hang into a clear error; a creative pattern can
+ * still be slow, which is why `-F` is offered.
+ *
+ * A hand-written scan, not a regex: the obvious regex
+ * (`/\((\\.|[^()])*[*+?{](\\.|[^()])*\)[+*{]/`) has two overlapping
+ * alternatives, so a run of backslashes inside parentheses makes the *check*
+ * itself backtrack exponentially — the guard would hang on the input it is
+ * meant to reject. This walk is linear in the pattern length.
  */
-const NESTED_QUANTIFIER = /\((?:\\.|[^()])*[*+?{](?:\\.|[^()])*\)[+*{]/;
+export function hasNestedQuantifier(pattern: string): boolean {
+  /** Does the body of each open group contain a quantifier? */
+  const groups: boolean[] = [];
+
+  /** End index of a quantifier starting at `index`, or -1 when there is none. */
+  const quantifierEnd = (index: number): number => {
+    const ch = pattern[index];
+    if (ch === "*" || ch === "+" || ch === "?") {
+      // A trailing `?` makes the quantifier lazy; it is not one more quantifier.
+      return pattern[index + 1] === "?" ? index + 2 : index + 1;
+    }
+    if (ch === "{") {
+      const bounded = /^\{\d+(?:,\d*)?\}/.exec(pattern.slice(index));
+      return bounded ? index + bounded[0].length : -1;
+    }
+    return -1;
+  };
+
+  /** Index of the first character of the group body, after any `(?…)` prefix. */
+  const bodyStart = (open: number): number => {
+    if (pattern[open + 1] !== "?") {
+      return open + 1;
+    }
+    const kind = pattern[open + 2];
+    if (kind === ":" || kind === "=" || kind === "!") {
+      return open + 3;
+    }
+    if (kind === "<") {
+      const inner = pattern[open + 3];
+      if (inner === "=" || inner === "!") {
+        return open + 4;
+      }
+      const close = pattern.indexOf(">", open + 3);
+      return close === -1 ? open + 3 : close + 1;
+    }
+    return open + 2;
+  };
+
+  let i = 0;
+  while (i < pattern.length) {
+    const ch = pattern[i];
+    if (ch === "\\") {
+      i += 2;
+      continue;
+    }
+    if (ch === "[") {
+      // A quantifier inside a character class is a literal.
+      i += 1;
+      while (i < pattern.length && pattern[i] !== "]") {
+        i += pattern[i] === "\\" ? 2 : 1;
+      }
+      i += 1;
+      continue;
+    }
+    if (ch === "(") {
+      groups.push(false);
+      i = bodyStart(i);
+      continue;
+    }
+    if (ch === ")") {
+      const bodyHadQuantifier = groups.pop() ?? false;
+      i += 1;
+      const repeated = quantifierEnd(i);
+      if (repeated !== -1) {
+        if (bodyHadQuantifier) {
+          return true;
+        }
+        i = repeated;
+        if (groups.length > 0) {
+          groups[groups.length - 1] = true;
+        }
+      }
+      continue;
+    }
+    const end = quantifierEnd(i);
+    if (end !== -1) {
+      i = end;
+      if (groups.length > 0) {
+        groups[groups.length - 1] = true;
+      }
+      continue;
+    }
+    i += 1;
+  }
+
+  return false;
+}
 
 /** The grep flags we support, mapped 1:1 onto grepts' SearchOptions. */
 export interface GrepRequest {
@@ -387,7 +479,7 @@ function parseGrepArgs(args: string[]): GrepRequest {
   if (!request.pattern) {
     throw new Error("grep requires a non-empty pattern");
   }
-  if (!request.fixedStrings && NESTED_QUANTIFIER.test(request.pattern)) {
+  if (!request.fixedStrings && hasNestedQuantifier(request.pattern)) {
     throw new Error(
       `pattern ${JSON.stringify(request.pattern)} has nested quantifiers, which ` +
         "can freeze the editor; simplify it or pass -F for a literal search",
@@ -690,7 +782,9 @@ async function renderFileCommand(
       ? sliceLines(content, command.startLine, command.endLine)
       : content;
   const heading = command.kind === "cat" ? command.relPath : command.line;
-  return renderSection(heading, body);
+  // File content is embedded verbatim, like `buildMarkdown` does: trailing
+  // spaces and newlines are part of the file, not decoration to trim.
+  return fencedSection(heading, body, false);
 }
 
 /**

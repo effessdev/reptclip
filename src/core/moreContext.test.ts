@@ -98,9 +98,46 @@ test("parseMoreContextCommands refuses a catastrophic regex shape", () => {
     () => parseMoreContextCommands('grep "(a*b)*c" .'),
     /nested quantifiers/i,
   );
+  assert.throws(
+    () => parseMoreContextCommands('grep "(a{2})+" .'),
+    /nested quantifiers/i,
+  );
   // A literal search for the same text, and an ordinary alternation, are fine.
   assert.equal(parseMoreContextCommands('grep -F "(a+)+$" .').length, 1);
   assert.equal(parseMoreContextCommands('grep "(foo|bar)+" .').length, 1);
+});
+
+test("the nested-quantifier check is about quantifiers, not punctuation", () => {
+  // `?` after `(` is a group prefix, not a quantifier in the body; a quantifier
+  // inside a character class or an escaped group is a literal.
+  for (const pattern of [
+    "(?:foo|bar)+",
+    "(?=a)b",
+    "(?<=a)b",
+    "(?<!a)b",
+    "(?<name>a)b",
+    "[()]+",
+    "\\(a+\\)",
+    "(a)+?",
+    "(ab){2,3}",
+  ]) {
+    assert.equal(
+      parseMoreContextCommands(`grep "${pattern}" .`).length,
+      1,
+      pattern,
+    );
+  }
+});
+
+test("the nested-quantifier check does not backtrack on its own input", () => {
+  // The previous implementation used a regex with two overlapping alternatives,
+  // so a run of backslashes inside parentheses made the *check* exponential:
+  // 40 backslashes took over two seconds, and each 8 more multiplied it by ~46.
+  // This pattern is not a nested quantifier and must return immediately.
+  const pathological = `(${"\\".repeat(80)}a)`;
+  const started = Date.now();
+  assert.equal(parseMoreContextCommands(`grep "${pathological}" .`).length, 1);
+  assert.ok(Date.now() - started < 2000, `${Date.now() - started} ms`);
 });
 
 test("parseMoreContextCommands throws for unknown command", () => {
@@ -265,7 +302,11 @@ test("moreContext keeps grep hits from a text file above the embed limit", async
   );
 
   const result = await moreContext(rootDir, "grep NEEDLE big.txt");
-  assert.ok(result.markdown.includes("NEEDLE"), result.markdown.slice(0, 200));
+  // The section heading carries the pattern, so asserting the whole markdown
+  // would pass on an empty body. Count the result and look at the body.
+  assert.equal(result.searchResultCount, 1, result.markdown.slice(0, 200));
+  const body = result.markdown.split("\n").slice(1).join("\n");
+  assert.ok(body.includes("NEEDLE"), body.slice(0, 200));
 });
 
 test("moreContext runs read-lines command and returns the requested range", async () => {
@@ -462,4 +503,14 @@ test("moreContext drops grep matches containing NUL bytes", async () => {
 
   const result = await moreContext(rootDir, "grep TODO binary.ts");
   assert.ok(result.markdown.includes("(no matches)"));
+});
+
+test("moreContext keeps trailing whitespace in cat content", async () => {
+  const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), "reptclip-morecat-ws-"));
+  await fs.writeFile(path.join(rootDir, "ws.txt"), "line  \n\n", "utf8");
+
+  const result = await moreContext(rootDir, "cat ws.txt");
+  // Two trailing spaces on the line are part of the file; trimming them would
+  // make More Context disagree with the main context for the same file.
+  assert.match(result.markdown, /line {2}\n/);
 });
