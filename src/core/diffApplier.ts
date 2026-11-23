@@ -802,25 +802,37 @@ async function commitPlans(
     touched.push(uri);
   }
 
-  // Revalidate immediately before applying the edit. Opening documents above
-  // awaited, so buffers may have changed since the earlier validation.
-  assertBuffersCurrent?.();
-  // Last line of defence, after every await and dialog: the path still has to
-  // resolve inside the workspace and outside `.git`, and no other hard-link
-  // name may have appeared. A directory swapped for a junction while a modal
-  // was open would otherwise carry the write outside.
+  // Last line of defence, after every await and dialog. Every target — a
+  // deletion included, because VS Code deletes by path and a parent swapped for
+  // a junction would carry that deletion outside — must still resolve inside
+  // the workspace, outside `.git`, and inside the ignore rules. The embedding
+  // verdict from planning describes the path as it was then: a file swapped for
+  // a link to an ignored one during the dialog would otherwise be written.
+  const isEmbeddable = createEmbeddingGuard(rootDir);
   for (const plan of items) {
-    if (plan.deleted) {
-      continue;
-    }
-    await assertWritableTarget(plan.absPath, plan.relPath);
     const resolved = await resolveFile(rootDir, plan.relPath);
     if (resolved.realRelPath.split("/").includes(".git")) {
       throw new Error(
         `Cannot edit ${plan.relPath}: it now resolves inside .git. Nothing was applied.`,
       );
     }
+    const verdict = await isEmbeddable(resolved.realRelPath);
+    if (!verdict.ok) {
+      throw new Error(
+        `Cannot edit ${plan.relPath}: ${verdict.reason ?? "it is ignored"}. Nothing was applied.`,
+      );
+    }
+    // Deleting or moving one name of a hard link leaves the other names intact,
+    // so only a content write needs the writable-target check.
+    if (!plan.deleted) {
+      await assertWritableTarget(plan.absPath, plan.relPath);
+    }
   }
+
+  // Buffers last: every await above can let an editor change under us, and
+  // VS Code captures document versions when the edit is applied, so a check
+  // made before the loop would not see that change.
+  assertBuffersCurrent?.();
 
   const applied = await vscode.workspace.applyEdit(edit);
 

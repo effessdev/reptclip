@@ -382,3 +382,65 @@ test("E18 refuses a diff whose target is a directory", async () => {
   );
   assert.equal((await fs.stat(path.join(root, "docs"))).isDirectory(), true);
 });
+
+test("E33 refuses a deletion whose directory was swapped for an outside junction", async (t) => {
+  const root = await makeRoot("reptclip-e33-");
+  const outside = await makeRoot("reptclip-e33-outside-");
+  const dir = path.join(root, "sub");
+  await fs.mkdir(dir, { recursive: true });
+  await writeFile(root, "sub/created.txt", "changed\n");
+  await writeFile(outside, "created.txt", "outside\n");
+
+  // Undo of a create is a delete plan: the file is in the checkpoint's
+  // "after" state only, so the target is undefined.
+  const files = [
+    { relPath: "sub/created.txt", before: undefined, after: "x\n" },
+  ];
+
+  await assert.rejects(
+    () =>
+      applySnapshot(root, files as never, "undo", {
+        confirmConflict: async () => {
+          await fs.rm(dir, { recursive: true, force: true });
+          await fs.symlink(outside, dir, process.platform === "win32" ? "junction" : "dir");
+          return true;
+        },
+      }),
+    /escapes the workspace/i,
+  );
+  assert.equal(
+    await fs.readFile(path.join(outside, "created.txt"), "utf8"),
+    "outside\n",
+  );
+});
+
+test("E34 refuses when an allowed file becomes a link to an ignored one", async (t) => {
+  const root = await makeRoot("reptclip-e34-");
+  await writeFile(root, ".gitignore", ".env\n");
+  const secret = await writeFile(root, ".env", "TOKEN=1\n");
+  await writeFile(root, "notes.txt", "changed\n");
+
+  const probe = path.join(root, "probe-link");
+  try {
+    await fs.symlink(secret, probe, "file");
+    await fs.rm(probe, { force: true });
+  } catch {
+    t.skip("this environment cannot create file links");
+    return;
+  }
+
+  const files = [{ relPath: "notes.txt", before: "old\n", after: "x\n" }];
+
+  await assert.rejects(
+    () =>
+      applySnapshot(root, files as never, "undo", {
+        confirmConflict: async () => {
+          await fs.rm(path.join(root, "notes.txt"));
+          await fs.symlink(secret, path.join(root, "notes.txt"), "file");
+          return true;
+        },
+      }),
+    /ignor/i,
+  );
+  assert.equal(await fs.readFile(secret, "utf8"), "TOKEN=1\n");
+});
