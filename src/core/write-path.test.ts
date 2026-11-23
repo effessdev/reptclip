@@ -444,3 +444,33 @@ test("E34 refuses when an allowed file becomes a link to an ignored one", async 
   );
   assert.equal(await fs.readFile(secret, "utf8"), "TOKEN=1\n");
 });
+
+test("E32 deletes and moves one name of a hard link without touching the other", async (t) => {
+  const root = await makeRoot("reptclip-e32-");
+  await writeFile(root, ".gitignore", ".env\n");
+  const secret = await writeFile(root, ".env", "TOKEN=1\n");
+  const alias = path.join(root, "innocent.txt");
+  try {
+    await fs.link(secret, alias);
+  } catch {
+    t.skip("hard links are not supported in this environment");
+    return;
+  }
+
+  // Deleting one name leaves the file under the other one: not a content write.
+  const deleted = await applyDiffs(root, "innocent.txt delete");
+  assert.equal(deleted.deleted, 1);
+  assert.equal(await exists(alias), false);
+  assert.equal(await fs.readFile(secret, "utf8"), "TOKEN=1\n");
+
+  // A move is create + delete for the same reason.
+  await fs.link(secret, alias);
+  const moved = await applyDiffs(root, "innocent.txt -> moved.txt");
+  assert.equal(moved.created, 1);
+  assert.equal(moved.deleted, 1);
+  assert.equal(
+    await fs.readFile(path.join(root, "moved.txt"), "utf8"),
+    "TOKEN=1\n",
+  );
+  assert.equal(await fs.readFile(secret, "utf8"), "TOKEN=1\n");
+});
