@@ -48,21 +48,61 @@ export type MoreContextCommand =
  * meant to reject. This walk is linear in the pattern length.
  */
 export function hasNestedQuantifier(pattern: string): boolean {
-  /** Does the body of each open group contain a quantifier? */
-  const groups: boolean[] = [];
+  /**
+   * Per open group: does the body contain any quantifier, and does it contain
+   * one that can repeat an ambiguous number of times? `?` and a fixed `{n}`
+   * cannot multiply the work; `*`, `+`, `{n,}` and `{n,m}` can.
+   */
+  interface GroupState {
+    any: boolean;
+    amplifying: boolean;
+  }
+  const groups: GroupState[] = [];
 
-  /** End index of a quantifier starting at `index`, or -1 when there is none. */
-  const quantifierEnd = (index: number): number => {
+  const isDigit = (ch: string | undefined): boolean =>
+    ch !== undefined && ch >= "0" && ch <= "9";
+
+  /** A quantifier at `index`: where it ends, and whether it can multiply work. */
+  const quantifierAt = (
+    index: number,
+  ): { end: number; amplifying: boolean } | null => {
     const ch = pattern[index];
-    if (ch === "*" || ch === "+" || ch === "?") {
+    if (ch === "?") {
       // A trailing `?` makes the quantifier lazy; it is not one more quantifier.
-      return pattern[index + 1] === "?" ? index + 2 : index + 1;
+      return {
+        end: pattern[index + 1] === "?" ? index + 2 : index + 1,
+        amplifying: false,
+      };
+    }
+    if (ch === "*" || ch === "+") {
+      return {
+        end: pattern[index + 1] === "?" ? index + 2 : index + 1,
+        amplifying: true,
+      };
     }
     if (ch === "{") {
-      const bounded = /^\{\d+(?:,\d*)?\}/.exec(pattern.slice(index));
-      return bounded ? index + bounded[0].length : -1;
+      // Scanned by hand: `pattern.slice(index)` per brace copied the whole
+      // tail and made a brace-heavy pattern quadratic.
+      let j = index + 1;
+      const digitsStart = j;
+      while (isDigit(pattern[j])) j += 1;
+      if (j === digitsStart) {
+        return null;
+      }
+      if (pattern[j] === "}") {
+        return { end: j + 1, amplifying: false }; // {n}: fixed, cannot multiply
+      }
+      if (pattern[j] !== ",") {
+        return null;
+      }
+      j += 1;
+      while (isDigit(pattern[j])) j += 1;
+      if (pattern[j] !== "}") {
+        return null;
+      }
+      return { end: j + 1, amplifying: true }; // {n,} or {n,m}: ambiguous split
     }
-    return -1;
+    return null;
   };
 
   /** Index of the first character of the group body, after any `(?…)` prefix. */
@@ -102,30 +142,43 @@ export function hasNestedQuantifier(pattern: string): boolean {
       continue;
     }
     if (ch === "(") {
-      groups.push(false);
+      groups.push({ any: false, amplifying: false });
       i = bodyStart(i);
       continue;
     }
     if (ch === ")") {
-      const bodyHadQuantifier = groups.pop() ?? false;
+      const body = groups.pop() ?? { any: false, amplifying: false };
       i += 1;
-      const repeated = quantifierEnd(i);
-      if (repeated !== -1) {
-        if (bodyHadQuantifier) {
+      const repeated = quantifierAt(i);
+      if (repeated !== null) {
+        // A group that already repeats ambiguously, repeated again, is the
+        // catastrophic shape: `(a+)+`, and also `((a+))+`, where the inner
+        // group carries the quantifier.
+        if (repeated.amplifying && body.amplifying) {
           return true;
         }
-        i = repeated;
-        if (groups.length > 0) {
-          groups[groups.length - 1] = true;
-        }
+        i = repeated.end;
+      }
+      const parent = groups[groups.length - 1];
+      if (parent) {
+        // Propagate: a closed group is an atom of its parent's body, so a
+        // quantifier inside it still counts for the parent. Dropping this was
+        // how `((a+))+` slipped through.
+        parent.any = parent.any || body.any || repeated !== null;
+        parent.amplifying =
+          parent.amplifying ||
+          body.amplifying ||
+          (repeated !== null && repeated.amplifying);
       }
       continue;
     }
-    const end = quantifierEnd(i);
-    if (end !== -1) {
-      i = end;
-      if (groups.length > 0) {
-        groups[groups.length - 1] = true;
+    const quantifier = quantifierAt(i);
+    if (quantifier !== null) {
+      i = quantifier.end;
+      const owner = groups[groups.length - 1];
+      if (owner) {
+        owner.any = true;
+        owner.amplifying = owner.amplifying || quantifier.amplifying;
       }
       continue;
     }
