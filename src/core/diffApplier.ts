@@ -182,10 +182,7 @@ function isGitignoreFile(relative: string): boolean {
  * the only way to see them is to compare the inode with every `.gitignore`
  * on the target's ancestor chain.
  */
-async function aliasesGitignoreFile(
-  absPath: string,
-  rootDir: string,
-): Promise<boolean> {
+async function aliasesGitignoreFile(absPath: string): Promise<boolean> {
   let target;
   try {
     target = await fs.stat(absPath, { bigint: true });
@@ -195,7 +192,9 @@ async function aliasesGitignoreFile(
   if (!target.isFile() || target.ino === 0n) {
     return false;
   }
-  const root = path.resolve(rootDir);
+  // Walk to the filesystem root, not just to the workspace: the scanner applies
+  // `.gitignore` files from the repository root down, so a hard link to an
+  // *ancestor* `.gitignore` is just as dangerous as one to a file in here.
   let dir = path.dirname(path.resolve(absPath));
   for (;;) {
     try {
@@ -207,9 +206,6 @@ async function aliasesGitignoreFile(
       }
     } catch {
       // No .gitignore at this level; keep walking up.
-    }
-    if (dir === root) {
-      return false;
     }
     const parent = path.dirname(dir);
     if (parent === dir) {
@@ -880,7 +876,7 @@ async function validateGitignoreEdits(
     if (
       isGitignoreFile(block.file) ||
       isGitignoreFile(target.realRelPath) ||
-      (await aliasesGitignoreFile(target.absPath, rootDir))
+      (await aliasesGitignoreFile(target.absPath))
     ) {
       gitignoreTouches.add(block.file);
     }
@@ -893,7 +889,7 @@ async function validateGitignoreEdits(
       destination &&
       (isGitignoreFile(block.destination) ||
         isGitignoreFile(destination.realRelPath) ||
-        (await aliasesGitignoreFile(destination.absPath, rootDir)))
+        (await aliasesGitignoreFile(destination.absPath)))
     ) {
       gitignoreTouches.add(block.destination);
     }

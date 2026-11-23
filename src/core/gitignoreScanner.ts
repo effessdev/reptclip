@@ -60,10 +60,12 @@ function makeLevel(
   };
 }
 
-const CONFIG_TRUE = new Set(["", "true", "yes", "on", "1"]);
-const CONFIG_FALSE = new Set(["false", "no", "off", "0"]);
+const CONFIG_TRUE = new Set(["true", "yes", "on", "1"]);
+const CONFIG_FALSE = new Set(["false", "no", "off", "0", ""]);
 
-/** `#` and `;` start a comment outside quotes, exactly as git reads them. */
+/**
+ * `#` and `;` start a comment outside quotes, exactly as git reads them.
+ */
 function stripConfigComment(value: string): string {
   let quote: string | null = null;
   for (let i = 0; i < value.length; i += 1) {
@@ -94,6 +96,50 @@ function stripConfigComment(value: string): string {
  * global config are not followed: the repository's own answer covers the
  * common case, and a wrong `false` only makes the guard stricter.
  */
+/**
+ * A quoted git value: `"true"`, `"a\"b"`. Git strips the quotes and expands the
+ * usual escapes before the bool parser sees the value.
+ */
+function parseConfigValue(value: string): string {
+  const text = value.trim();
+  if (text.length < 2 || !text.startsWith('"') || !text.endsWith('"')) {
+    return text;
+  }
+  let out = "";
+  for (let i = 1; i < text.length - 1; i += 1) {
+    const ch = text[i];
+    if (ch === "\\" && i + 1 < text.length - 1) {
+      const escaped = text[i + 1];
+      out +=
+        escaped === "n"
+          ? "\n"
+          : escaped === "t"
+            ? "\t"
+            : escaped === "b"
+              ? "\b"
+              : escaped;
+      i += 1;
+      continue;
+    }
+    out += ch;
+  }
+  return out;
+}
+
+/**
+ * `core.ignorecase` from the repository config, parsed the way git's bool type
+ * reads it: `true`/`yes`/`on`/`1` are true, `false`/`no`/`off`/`0` are false, a
+ * bare key is true, and an explicit empty value (`ignorecase =`) is false. Those
+ * last two look alike but git maps them differently — checked against
+ * `git config --bool`.
+ *
+ * Only `[core]` counts: a subsection (`[core "x"]` is the section `core.x`) is a
+ * different key, and it must not leave the previous section active. Comments
+ * after a header are legal, and a quoted value is unquoted before conversion.
+ * `include.path` and the global config are not followed: the repository's own
+ * answer covers the common case, and a wrong `false` only makes the guard
+ * stricter.
+ */
 async function readGitConfigIgnoreCase(
   rootDir: string,
 ): Promise<boolean | undefined> {
@@ -108,25 +154,33 @@ async function readGitConfigIgnoreCase(
   let section = "";
   let verdict: boolean | undefined;
   for (const raw of config.split(/\r?\n/)) {
-    const line = raw.trim();
-    if (line === "" || line.startsWith("#") || line.startsWith(";")) {
+    // Comments first: `[core] # settings` is the header `[core]`.
+    const line = stripConfigComment(raw);
+    if (line === "") {
       continue;
     }
-    const header = /^\[([^\]"]+)\]$/.exec(line);
+    const header = /^\[\s*([A-Za-z0-9.-]+)(?:\s+"([^"]*)")?\s*\]$/.exec(line);
     if (header) {
-      section = header[1].trim().toLowerCase();
+      const base = header[1].toLowerCase();
+      section =
+        header[2] === undefined ? base : `${base}.${header[2].toLowerCase()}`;
       continue;
     }
-    const assignment =
-      /^([A-Za-z][A-Za-z0-9-]*)\s*=\s*(.*)$/.exec(line) ??
-      /^([A-Za-z][A-Za-z0-9-]*)$/.exec(line);
-    if (!assignment || section !== "core") {
+    const withValue = /^([A-Za-z][A-Za-z0-9-]*)\s*=\s*(.*)$/.exec(line);
+    const bareKey = withValue ? null : /^([A-Za-z][A-Za-z0-9-]*)$/.exec(line);
+    if (!withValue && !bareKey) {
       continue;
     }
-    if (assignment[1].toLowerCase() !== "ignorecase") {
+    if (section !== "core") {
       continue;
     }
-    const value = stripConfigComment(assignment[2] ?? "").toLowerCase();
+    const key = (withValue ?? bareKey)![1].toLowerCase();
+    if (key !== "ignorecase") {
+      continue;
+    }
+    const value = withValue
+      ? parseConfigValue(withValue[2]).toLowerCase()
+      : "true";
     if (CONFIG_TRUE.has(value)) {
       verdict = true;
     } else if (CONFIG_FALSE.has(value)) {
@@ -272,11 +326,20 @@ async function readExcludePatterns(rootDir: string): Promise<string | null> {
  * `.gitignore` from the repository root down to (but not including) the
  * workspace folder. The workspace's own `.gitignore` is added by the walker or
  * by the guard's per-directory cache, exactly once.
+ *
+ * `excluded` is set when a rule above the workspace excludes the workspace
+ * folder itself: git applies nothing from inside an excluded directory, so both
+ * entry points must see no files at all.
  */
+interface InheritedLevels {
+  levels: IgnoreLevel[];
+  excluded?: string;
+}
+
 async function inheritedLevels(
   rootDir: string,
   ignorecase: boolean,
-): Promise<IgnoreLevel[]> {
+): Promise<InheritedLevels> {
   const repository = await resolveRepository(rootDir);
   const levels: IgnoreLevel[] = [];
   const exclude = await readExcludePatterns(rootDir);
@@ -285,19 +348,45 @@ async function inheritedLevels(
   }
 
   const relative = path.relative(repository.root, path.resolve(rootDir));
-  if (relative.startsWith("..") || path.isAbsolute(relative)) {
-    return levels;
+  if (isOutsidePath(relative)) {
+    return { levels };
   }
   const segments = relative === "" ? [] : relative.split(path.sep);
   let dir = repository.root;
+  let reincludeBase: string | undefined;
   for (const segment of segments) {
     const content = await readIgnoreFile(path.join(dir, ".gitignore"));
     if (content !== null) {
       levels.push(makeLevel(dir, content, ignorecase));
     }
-    dir = path.join(dir, segment);
+    const child = path.join(dir, segment);
+    // git never re-includes anything under an excluded directory, so a
+    // descendant `.gitignore` cannot rescue a workspace that an ancestor rule
+    // already excluded. Judge each step on the way down, with the same levels
+    // and the same re-include base the file walk uses.
+    const verdict = verdictOf(child, true, levels, reincludeBase);
+    if (verdict === "ignored") {
+      return { levels, excluded: child };
+    }
+    if (verdict === "unignored") {
+      reincludeBase = child;
+    }
+    dir = child;
   }
-  return levels;
+  return { levels };
+}
+
+/**
+ * `relative` is outside its base when it is `..` itself, starts with `..` plus a
+ * separator, or is absolute. A name like `..workspace` only *looks* like a
+ * parent traversal.
+ */
+function isOutsidePath(relative: string): boolean {
+  return (
+    relative === ".." ||
+    relative.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(relative)
+  );
 }
 
 // -----------------------------------------------------------------------------
@@ -324,7 +413,15 @@ export async function collectNonIgnoredFiles(
   // real paths.
   const root = await fs.realpath(rootDir).catch(() => path.resolve(rootDir));
   const ignorecase = await detectIgnoreCase(root);
-  const inherited = await inheritedLevels(root, ignorecase);
+  const { levels: inherited, excluded } = await inheritedLevels(
+    root,
+    ignorecase,
+  );
+  if (excluded) {
+    // git ignores the workspace folder itself, so nothing inside it is a file
+    // git would track.
+    return [];
+  }
   await walk(root, root, inherited, results, undefined, ignorecase);
   return results.sort();
 }
@@ -367,10 +464,8 @@ export function createEmbeddingGuard(
   const settings = rootRealPromise.then(async (real) => {
     rootBase = real ?? rootNorm;
     const ignorecase = await detectIgnoreCase(rootBase);
-    return {
-      levels: await inheritedLevels(rootBase, ignorecase),
-      ignorecase,
-    };
+    const { levels, excluded } = await inheritedLevels(rootBase, ignorecase);
+    return { levels, ignorecase, excluded };
   });
 
   // Ignore levels for `dirAbs`, inherited from its ancestors and extended by
@@ -417,6 +512,15 @@ export function createEmbeddingGuard(
     const rootReal = await rootRealPromise;
     if (rootReal === undefined) {
       return { ok: false, reason: "project root is not readable" };
+    }
+    const { excluded } = await settings;
+    if (excluded) {
+      // An ancestor rule excludes the workspace folder itself; git re-includes
+      // nothing below it, not even through a `.gitignore` in here.
+      return {
+        ok: false,
+        reason: "the workspace folder is ignored by .gitignore",
+      };
     }
     const absPath = path.normalize(path.join(rootReal, ...segments));
     if (absPath !== rootReal && !absPath.startsWith(rootReal + path.sep)) {
@@ -693,7 +797,7 @@ function verdictOf(
     // Patterns stay anchored to the .gitignore that defined them; only the
     // *cause* of an ignore is scoped to a re-included directory below.
     const rel = toPosixPath(path.relative(level.dir, fullPath));
-    if (!rel || rel.startsWith("..")) {
+    if (!rel || rel === ".." || rel.startsWith("../")) {
       continue;
     }
     // The `ignore` package wants directory patterns tested with matching

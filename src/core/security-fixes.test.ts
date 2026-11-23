@@ -1488,3 +1488,168 @@ test("E15 resolves info/exclude through a linked worktree's gitdir/commondir", a
   assert.equal(verdict.ok, false);
   assert.match(verdict.reason ?? "", /ignored/i);
 });
+
+test("E35 refuses editing a hard link to a .gitignore above the workspace", async (t) => {
+  const repo = await makeRoot("reptclip-e35-");
+  const source = await writeFile(repo, ".gitignore", ".env\n");
+  const workspace = path.join(repo, "work");
+  await fs.mkdir(workspace);
+  const alias = path.join(workspace, "ignore-mirror");
+  try {
+    await fs.link(source, alias);
+  } catch {
+    t.skip("hard links are not supported in this environment");
+    return;
+  }
+
+  // The scanner applies the repository's .gitignore to this workspace, so a
+  // hard link to it must ask for confirmation just like the file itself.
+  await assert.rejects(
+    () => applyDiffs(workspace, block("ignore-mirror", ".env", "# gone")),
+    /gitignore/i,
+  );
+  assert.equal(await fs.readFile(source, "utf8"), ".env\n");
+});
+
+test("E36 reads an explicit empty core.ignorecase as false", async (t) => {
+  const root = await makeRoot("reptclip-e36-");
+  try {
+    execFileSync("git", ["init", "-q"], { cwd: root });
+  } catch {
+    t.skip("git is not available in this environment");
+    return;
+  }
+  // `git config` normalises an empty value away, so write the file by hand.
+  const config = path.join(root, ".git", "config");
+  const base = await fs.readFile(config, "utf8");
+  await fs.writeFile(config, `${base}\n[core]\n\tignorecase =\n`, "utf8");
+  await writeFile(root, ".gitignore", "*.LOG\n");
+  await writeFile(root, "app.log", "x\n");
+
+  // git: a bare key means true, `key =` means false. The parser read both as
+  // true, which hid app.log on a case-sensitive volume.
+  assert.equal(gitIgnored(root, "app.log"), false);
+  assert.equal(
+    await createEmbeddingGuard(root)("app.log").then((v) => v.ok),
+    true,
+  );
+});
+
+test("E37 reads a quoted core.ignorecase value", async (t) => {
+  const root = await makeRoot("reptclip-e37-");
+  try {
+    execFileSync("git", ["init", "-q"], { cwd: root });
+  } catch {
+    t.skip("git is not available in this environment");
+    return;
+  }
+  const config = path.join(root, ".git", "config");
+  const base = await fs.readFile(config, "utf8");
+  await writeFile(root, ".gitignore", "*.LOG\n");
+  await writeFile(root, "app.log", "x\n");
+
+  // Both spellings, so the test fails on either kind of volume: a parser that
+  // keeps the quotes falls back to the volume probe and gets one of them wrong.
+  for (const [written, hidden] of [
+    ["true", true],
+    ["false", false],
+  ] as const) {
+    await fs.writeFile(
+      config,
+      `${base}\n[core]\n\tignorecase = "${written}"\n`,
+      "utf8",
+    );
+    assert.equal(gitIgnored(root, "app.log"), hidden, written);
+    assert.equal(
+      await createEmbeddingGuard(root)("app.log").then((v) => v.ok),
+      !hidden,
+      written,
+    );
+  }
+});
+
+test("E38 reads a commented header and does not leak a subsection", async (t) => {
+  const root = await makeRoot("reptclip-e38-");
+  try {
+    execFileSync("git", ["init", "-q"], { cwd: root });
+  } catch {
+    t.skip("git is not available in this environment");
+    return;
+  }
+  const config = path.join(root, ".git", "config");
+  const base = await fs.readFile(config, "utf8");
+  await writeFile(root, ".gitignore", "*.LOG\n");
+  await writeFile(root, "app.log", "x\n");
+
+  // A comment after the header is legal, and the assignment still belongs to
+  // [core]; the previous parser dropped both and fell back to the probe.
+  await fs.writeFile(
+    config,
+    `${base}\n[core] # settings\n\tignorecase = false\n`,
+    "utf8",
+  );
+  assert.equal(gitIgnored(root, "app.log"), false);
+  assert.equal(
+    await createEmbeddingGuard(root)("app.log").then((v) => v.ok),
+    true,
+  );
+
+  // `[core "x"]` is the section core.x. It must not leave [core] active, or an
+  // unrelated assignment would be read as core.ignorecase.
+  await fs.writeFile(
+    config,
+    `${base}\n[core]\n\tignorecase = false\n[core "x"]\n\tignorecase = true\n`,
+    "utf8",
+  );
+  assert.equal(gitIgnored(root, "app.log"), false);
+  assert.equal(
+    await createEmbeddingGuard(root)("app.log").then((v) => v.ok),
+    true,
+  );
+});
+
+test("E39 inherits rules for a workspace whose name starts with two dots", async (t) => {
+  const repo = await makeRoot("reptclip-e39-");
+  try {
+    execFileSync("git", ["init", "-q"], { cwd: repo });
+  } catch {
+    t.skip("git is not available in this environment");
+    return;
+  }
+  await writeFile(repo, ".gitignore", "*.log\n");
+  const workspace = path.join(repo, "..workspace");
+  await fs.mkdir(workspace);
+  await writeFile(workspace, "app.log", "x\n");
+
+  // `..workspace` only looks like a parent traversal; the rule still applies.
+  assert.equal(gitIgnored(workspace, "app.log"), true);
+  assert.equal(
+    await createEmbeddingGuard(workspace)("app.log").then((v) => v.ok),
+    false,
+  );
+  assert.deepEqual(await collectNonIgnoredFiles(workspace), []);
+});
+
+test("E40 treats a workspace folder excluded by an ancestor rule as empty", async (t) => {
+  const repo = await makeRoot("reptclip-e40-");
+  try {
+    execFileSync("git", ["init", "-q"], { cwd: repo });
+  } catch {
+    t.skip("git is not available in this environment");
+    return;
+  }
+  await writeFile(repo, ".gitignore", "/private/\n");
+  const workspace = path.join(repo, "private");
+  await fs.mkdir(workspace);
+  await writeFile(workspace, ".gitignore", "!app.log\n");
+  await writeFile(workspace, "app.log", "x\n");
+
+  // git applies nothing from inside an excluded directory, so the negation in
+  // private/.gitignore cannot rescue app.log.
+  assert.equal(gitIgnored(workspace, "app.log"), true);
+  assert.deepEqual(await collectNonIgnoredFiles(workspace), []);
+  assert.equal(
+    await createEmbeddingGuard(workspace)("app.log").then((v) => v.ok),
+    false,
+  );
+});
