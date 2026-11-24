@@ -139,7 +139,7 @@ This will attach `AGENTS.md` and all Python files, but exclude `src/secret.py` a
 
 - **`.gitignore` is a noise filter, not a secret filter.** A `.env` or key file that is not listed there is embedded verbatim and ends up in the chatbot and on the clipboard. Keep secrets ignored, or name them in **Files to exclude**.
 
-- **Oversized and binary files are skipped automatically**, replaced by a descriptive placeholder in the output (limit: 1 MB; binaries detected via NUL-byte sniffing), they still appear in the project structure listing without a line count, since the same limit and binary check decide whether one can be shown.
+- **Oversized, binary, and non-UTF-8 files are skipped automatically**, replaced by a descriptive placeholder in the output (limit: 1 MB; binaries detected via NUL-byte sniffing, legacy encodings rejected instead of pasted as `�`), they still appear in the project structure listing without a line count, since the same limit, binary and encoding checks decide whether one can be shown.
 
 - **There is no second implementation for "More Context" to worry about.** Its commands come from the clipboard instead of the pattern textareas, but `cat` paths are checked and read through the exact same pipeline as the Context button: same `.gitignore` enforcement, same size/binary guards, same Markdown builder. `grep` runs in-process via [grepts](https://github.com/ahmadawais/grepts) with `.gitignore` respect forced on (`--no-ignore` is refused), and every matched file is re-checked through the same embedding guard before any of its lines are embedded. The only difference is what gets wrapped around the results: More Context emits the requested file and search sections alone, no project structure, "AI instructions", or "Prompt" sections, so a mid-conversation supplement pastes cleanly on top of what the chatbot already has.
 
@@ -204,7 +204,7 @@ Paste-ready command blocks don't come only from you. The "AI instructions" secti
 Each non-empty line is one command, and the results appear in the order you pasted:
 
 - **`cat <path>`** reads a file, e.g. `cat src/main.py` or `cat "docs/my file.md"`. Paths are quote-aware, but each `cat` takes exactly one path. `cat this fails` is an error, not two files.
-- **`grep <flags> <pattern> [paths...]`** searches file contents using [grepts](https://github.com/ahmadawais/grepts), a TypeScript grep that runs in-process (no subprocess). Without paths it searches the whole project; with paths it searches only those files and directories.
+- **`grep <flags> <pattern> [paths...]`** searches file contents using [grepts](https://github.com/ahmadawais/grepts), a TypeScript grep that runs in-process (no subprocess). Without paths it searches the whole project; with paths it searches only those files and directories. Patterns with nested quantifiers (`(a+)+`) are refused, because one of those would freeze the editor with no way to interrupt it; use `-F` for a literal search.
 - **`read-lines <path> <start_line> [end_line]`** reads a 1-indexed, inclusive range of lines from a file, e.g. `read-lines src/main.py 10 25`. `end_line` is optional. Omit it to read to the end of the file. If it's higher than the file's total line count, the range is simply clamped to the end of the file instead of erroring.
 
 For example, this clipboard block:
