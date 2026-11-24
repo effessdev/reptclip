@@ -1502,11 +1502,12 @@ test("E35 refuses editing a hard link to a .gitignore above the workspace", asyn
     return;
   }
 
-  // The scanner applies the repository's .gitignore to this workspace, so a
-  // hard link to it must ask for confirmation just like the file itself.
+  // Two guards can claim this write: the hard-link rule (one inode, two names)
+  // and the .gitignore confirmation (the alias is a .gitignore above the
+  // workspace). Either refusal is correct, so accept either reason.
   await assert.rejects(
     () => applyDiffs(workspace, block("ignore-mirror", ".env", "# gone")),
-    /gitignore/i,
+    /gitignore|hard link/i,
   );
   assert.equal(await fs.readFile(source, "utf8"), ".env\n");
 });
