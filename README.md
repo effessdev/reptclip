@@ -135,9 +135,9 @@ This will attach `AGENTS.md` and all Python files, but exclude `src/secret.py` a
 
 #### Safety measures for context
 
-- **Only files not excluded by `.gitignore` are ever considered**, using layered, per-directory `.gitignore` parsing (via the `ignore` package) rather than shelling out to git. This isn't just a filter on one feature's candidate list, it's enforced at the single chokepoint every embedded file read passes through, so no feature and no hand-written path list can bypass it.
+- **Only files git would not ignore are ever considered**, using layered, per-directory `.gitignore` parsing (via the `ignore` package) plus the repository's `$GIT_DIR/info/exclude` (and a linked worktree's common dir), rather than shelling out to git. Rules are inherited from the repository root even when the panel is opened on a subdirectory, `core.ignorecase` is honoured the same way git does, and a workspace folder that an ancestor rule excludes yields no files at all. `core.excludesFile` and `include.path` are **not** read — a file ignored only through one of those is still considered. This isn't just a filter on one feature's candidate list, it's enforced at the single chokepoint every embedded file read passes through, so no feature and no hand-written path list can bypass it.
 
-- **`.gitignore` is a noise filter, not a secret filter.** A `.env` or key file that is not listed there is embedded verbatim and ends up in the chatbot and on the clipboard. Keep secrets ignored, or name them in **Files to exclude**.
+- **`.gitignore` is a noise filter, not a secret filter.** A `.env` or key file that is not listed there is embedded verbatim and ends up in the chatbot and on the clipboard. Keep secrets ignored, or name them in **Files to exclude**. Opening the panel on a folder that git itself ignores gives an empty file list, because git would not track files there either.
 
 - **Oversized, binary, and non-UTF-8 files are skipped automatically**, replaced by a descriptive placeholder in the output (limit: 1 MB; binaries detected via NUL-byte sniffing, legacy encodings rejected instead of pasted as `�`), they still appear in the project structure listing without a line count, since the same limit, binary and encoding checks decide whether one can be shown.
 
@@ -173,13 +173,13 @@ Your chatbot can:
 
 - **Dirty editor buffers win over the disk copy.** If a file is open with unsaved changes, matching and the checkpoint use the buffer, so a block that only exists in the editor is found and the unrelated unsaved lines are kept. Nothing is matched against a stale copy anymore.
 
-- **A diff can only write files that aren't gitignored**, enforced by the exact same guard that governs reading — so whatever is off-limits for context is off-limits for diffs too, including through a symlink or junction. This has no override: if a path is ignored, writing it is refused outright.
+- **A diff can only write files that aren't gitignored**, enforced by the exact same guard that governs reading — so whatever is off-limits for context (including `.gitignore` and `$GIT_DIR/info/exclude`) is off-limits for diffs too, including through a symlink or junction. This has no override: if a path is ignored, writing it is refused outright.
 
 - **`.git` is always refused**, at any depth, regardless of `.gitignore` content — git executes content from there (hooks, aliases, `core.fsmonitor`), so a diff must never be able to write to it.
 
 - **A Windows NTFS alternate-data-stream alias can't bypass a `.gitignore` rule.** `.env::$DATA` refers to the same file as `.env`, so a diff targeting that alias is checked against `.gitignore` as if it were the plain path.
 
-- **Editing, creating, deleting, or moving a `.gitignore` file asks for confirmation first.** Since changing one can un-ignore something previously protected (like `.env`), ReptClip won't apply such a change silently — you'll see a dialog explaining the risk before it goes through.
+- **Editing, creating, deleting, or moving a `.gitignore` file asks for confirmation first**, including when it is reached through a symlink or junction. Since changing one can un-ignore something previously protected (like `.env`), ReptClip won't apply such a change silently — you'll see a dialog explaining the risk before it goes through. A hard link cannot be used as a shortcut either: a diff refuses to edit a file that has other hard-link names, because the write would silently change every one of them. Undo and redo restore a state you already confirmed, so they do not ask again.
 
 - **A diff path must stay inside the workspace, even through symlinks and junctions.** Diff paths are resolved with `fs.realpath` before anything is written, including dangling links, so a link inside the project cannot turn `linked/file.txt` into a write outside it. Hard links are not covered: they are the same file under a local path, so there is no path difference to detect.
 

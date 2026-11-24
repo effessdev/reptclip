@@ -149,6 +149,12 @@ async function hasDiskChanges(
  * segment. For example, `.env::$DATA` becomes `.env`.
  */
 function stripAdsSuffix(relative: string): string {
+  // NTFS alternate data streams are a Windows concept; on POSIX a colon is an
+  // ordinary filename character, so stripping it there would judge `a:b`
+  // against rules written for `a`.
+  if (process.platform !== "win32") {
+    return relative;
+  }
   const segments = relative.split(/[\\/]+/).filter(Boolean);
 
   if (segments.length === 0) {
@@ -167,6 +173,46 @@ function stripAdsSuffix(relative: string): string {
 function isGitignoreFile(relative: string): boolean {
   const base = stripAdsSuffix(relative).split("/").pop()!.toLowerCase();
   return base === ".gitignore";
+}
+
+/**
+ * Whether `absPath` is the *same file* as a `.gitignore`, without being
+ * spelled that way. Symbolic links and junctions resolve through
+ * `realRelPath`; hard links do not — they are one inode under two names — so
+ * the only way to see them is to compare the inode with every `.gitignore`
+ * on the target's ancestor chain.
+ */
+async function aliasesGitignoreFile(absPath: string): Promise<boolean> {
+  let target;
+  try {
+    target = await fs.stat(absPath, { bigint: true });
+  } catch {
+    return false; // a path that does not exist yet cannot be an alias
+  }
+  if (!target.isFile() || target.ino === 0n) {
+    return false;
+  }
+  // Walk to the filesystem root, not just to the workspace: the scanner applies
+  // `.gitignore` files from the repository root down, so a hard link to an
+  // *ancestor* `.gitignore` is just as dangerous as one to a file in here.
+  let dir = path.dirname(path.resolve(absPath));
+  for (;;) {
+    try {
+      const candidate = await fs.stat(path.join(dir, ".gitignore"), {
+        bigint: true,
+      });
+      if (candidate.dev === target.dev && candidate.ino === target.ino) {
+        return true;
+      }
+    } catch {
+      // No .gitignore at this level; keep walking up.
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) {
+      return false;
+    }
+    dir = parent;
+  }
 }
 
 /** Whether `candidate` is `root` itself or lives inside it, using OS case rules. */
@@ -812,20 +858,38 @@ async function resolveAndValidatePaths(
  * `.gitignore` file.
  */
 async function validateGitignoreEdits(
+  rootDir: string,
   blocks: DiffBlock[],
+  targets: { absPath: string; realRelPath: string }[],
+  destinations: ({ absPath: string; realRelPath: string } | undefined)[],
   options: ApplyOptions,
 ): Promise<void> {
+  // Judge the path the write really lands on, not just the spelling: a link
+  // named `ignore-mirror` can point at `.gitignore`, and editing it then
+  // un-ignores files with no dialog at all.
   const gitignoreTouches = new Set<string>();
 
-  for (const block of blocks) {
-    if (isGitignoreFile(block.file)) {
+  for (let index = 0; index < blocks.length; index += 1) {
+    const block = blocks[index];
+    const target = targets[index];
+
+    if (
+      isGitignoreFile(block.file) ||
+      isGitignoreFile(target.realRelPath) ||
+      (await aliasesGitignoreFile(target.absPath))
+    ) {
       gitignoreTouches.add(block.file);
     }
+
+    const destination = destinations[index];
 
     if (
       block.kind === "move" &&
       block.destination &&
-      isGitignoreFile(block.destination)
+      destination &&
+      (isGitignoreFile(block.destination) ||
+        isGitignoreFile(destination.realRelPath) ||
+        (await aliasesGitignoreFile(destination.absPath)))
     ) {
       gitignoreTouches.add(block.destination);
     }
@@ -1078,7 +1142,7 @@ export async function applyDiffs(
   );
 
   // 3. Confirm potentially dangerous .gitignore changes.
-  await validateGitignoreEdits(blocks, options);
+  await validateGitignoreEdits(rootDir, blocks, targets, destinations, options);
 
   // 4. Simulate all operations without modifying files.
   const { plans, fuzzy } = await buildFilePlans(
