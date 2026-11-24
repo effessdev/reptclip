@@ -7,6 +7,10 @@ import {
 import { selectFiles } from "./patternMatcher";
 import { tokenize } from "./tokenizer";
 import { readFileSafe, countFileLines } from "./fileGuards";
+import { mapLimit } from "./mapLimit";
+
+/** How many files the "Context" click may have open at once. */
+const READ_CONCURRENCY = 32;
 import { buildMarkdown } from "./markdownBuilder";
 import { estimateTokens } from "./tokenEstimator";
 import { GenerateResult, UiState } from "./types";
@@ -52,14 +56,17 @@ async function collectLineCounts(
   rootDir: string,
   files: string[],
 ): Promise<Record<string, number | undefined>> {
-  const counts: Record<string, number | undefined> = {};
-  for (const relPath of files) {
+  const counted = await mapLimit(files, READ_CONCURRENCY, async (relPath) => {
     try {
-      counts[relPath] = await countFileLines(path.join(rootDir, relPath));
+      return await countFileLines(path.join(rootDir, relPath));
     } catch {
-      counts[relPath] = undefined;
+      return undefined;
     }
-  }
+  });
+  const counts: Record<string, number | undefined> = {};
+  files.forEach((relPath, index) => {
+    counts[relPath] = counted[index];
+  });
   return counts;
 }
 
@@ -193,26 +200,30 @@ async function buildContext(
   allFiles: string[],
 ): Promise<GenerateResult> {
   const guard = createEmbeddingGuard(rootDir);
-  const fileContents: Record<string, string> = {};
-  for (const relPath of attachedFiles) {
-    const verdict = await guard(relPath);
-    if (!verdict.ok) {
-      fileContents[relPath] = `[Skipped: ${verdict.reason}]`;
-      continue;
-    }
+  const contents = await mapLimit(
+    attachedFiles,
+    READ_CONCURRENCY,
+    async (relPath) => {
+      const verdict = await guard(relPath);
+      if (!verdict.ok) {
+        return `[Skipped: ${verdict.reason}]`;
+      }
 
-    // Read the canonical path the guard validated; re-joining the user path
-    // would follow a link the guard just rejected.
-    const absPath = verdict.absPath ?? path.join(rootDir, relPath);
-    try {
-      const result = await readFileSafe(absPath);
-      fileContents[relPath] = result.skipped
-        ? `[${result.reason}]`
-        : (result.content ?? "");
-    } catch {
-      fileContents[relPath] = "[File not found]";
-    }
-  }
+      // Read the canonical path the guard validated; re-joining the user path
+      // would follow a link the guard just rejected.
+      const absPath = verdict.absPath ?? path.join(rootDir, relPath);
+      try {
+        const result = await readFileSafe(absPath);
+        return result.skipped ? `[${result.reason}]` : (result.content ?? "");
+      } catch {
+        return "[File not found]";
+      }
+    },
+  );
+  const fileContents: Record<string, string> = {};
+  attachedFiles.forEach((relPath, index) => {
+    fileContents[relPath] = contents[index];
+  });
 
   const markdown = buildMarkdown({
     allFiles,
