@@ -60,7 +60,7 @@ You can copy that block and click the "More Context" button to copy the output t
 
 ### Why you can trust it
 
-**ReptClip only touches files that are tracked by git.** Anything your `.gitignore` files (at any depth) exclude is completely off-limits, for reading, searching, writing, creating, deleting, whatever. `.git` folders are always off-limits too. If something ever goes wrong anyway, you can simply discard the changes with git, since they are tracked.
+**ReptClip only touches files its ignore sources do not exclude.** Anything your `.gitignore` files (at any depth) exclude is completely off-limits, for reading, searching, writing, creating, deleting, whatever. `.git` folders are always off-limits too. If something ever goes wrong anyway, the change is an ordinary file edit you can revert.
 
 If the AI attempts to touch a `.gitignore` file, ReptClip for confirmation first, since that can un-ignore something that was previously protected.
 
@@ -135,7 +135,7 @@ This will attach `AGENTS.md` and all Python files, but exclude `src/secret.py` a
 
 #### Safety measures for context
 
-- **Only files git would not ignore are ever considered**, using layered, per-directory `.gitignore` parsing (via the `ignore` package) plus the repository's `$GIT_DIR/info/exclude` (and a linked worktree's common dir), rather than shelling out to git. Rules are inherited from the repository root even when the panel is opened on a subdirectory, `core.ignorecase` is honoured the same way git does, and a workspace folder that an ancestor rule excludes yields no files at all. `core.excludesFile` and `include.path` are **not** read — a file ignored only through one of those is still considered. This isn't just a filter on one feature's candidate list, it's enforced at the single chokepoint every embedded file read passes through, so no feature and no hand-written path list can bypass it.
+- **Only files not excluded by the supported ignore sources are ever considered**, using layered, per-directory `.gitignore` parsing (via the `ignore` package) plus the repository's `$GIT_DIR/info/exclude` (and a linked worktree's common dir), rather than shelling out to git. Rules are inherited from the repository root even when the panel is opened on a subdirectory, `core.ignorecase` is honoured the same way git does, and a workspace folder that an ancestor rule excludes yields no files at all. Two git sources are **not** read: `core.excludesFile` and `include.path` — a file ignored only through one of those is still considered. This isn't just a filter on one feature's candidate list, it's enforced at the single chokepoint every embedded file read passes through, so no feature and no hand-written path list can bypass it.
 
 - **`.gitignore` is a noise filter, not a secret filter.** A `.env` or key file that is not listed there is embedded verbatim and ends up in the chatbot and on the clipboard. Keep secrets ignored, or name them in **Files to exclude**. Opening the panel on a folder that git itself ignores gives an empty file list, because git would not track files there either.
 
