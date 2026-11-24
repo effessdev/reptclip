@@ -704,6 +704,61 @@ test("P10 keeps a separately excluded directory inside a re-included base", asyn
   assert.equal((await guard("nested/build/private/secret.txt")).ok, false);
 });
 
+test("P11 keeps files when the workspace itself is a re-included folder", async () => {
+  // A root rule excludes `nested/build/`, `nested/.gitignore` re-includes it,
+  // and the panel is opened on `nested/build` itself. The re-inclusion has to
+  // survive the trip out of `inheritedLevels`, or every file under the
+  // workspace is dropped.
+  const root = await makeRoot("reptclip-p11-");
+  await writeFile(root, ".git/HEAD", "ref: refs/heads/main\n");
+  await writeFile(root, ".gitignore", "/nested/build/\n");
+  await writeFile(root, "nested/.gitignore", "!build/\n");
+  await writeFile(root, "nested/build/app.txt", "x\n");
+  const workspace = path.join(root, "nested", "build");
+
+  assert.deepEqual(await collectNonIgnoredFiles(workspace), ["app.txt"]);
+  assert.equal((await createEmbeddingGuard(workspace)("app.txt")).ok, true);
+
+  // A rule that excludes a directory below the re-included base still applies.
+  await writeFile(root, "nested/.gitignore", "!build/\nbuild/private/\n");
+  await writeFile(root, "nested/build/private/secret.txt", "secret\n");
+  assert.deepEqual(await collectNonIgnoredFiles(workspace), ["app.txt"]);
+  assert.equal(
+    (await createEmbeddingGuard(workspace)("private/secret.txt")).ok,
+    false,
+  );
+
+  // The base only scopes the *cause* of an ignore to the re-included directory:
+  // a root pattern that matches the file itself still applies.
+  await writeFile(root, ".gitignore", "/nested/build/\n*.secret\n");
+  await writeFile(root, "nested/build/x.secret", "s\n");
+  assert.equal((await createEmbeddingGuard(workspace)("x.secret")).ok, false);
+});
+
+test("P11b judges an alias inside a re-included workspace from its base", async (t) => {
+  // The lexical name is `alias/file.txt`, the real path is `sub/file.txt`: the
+  // alias branch evaluates the canonical target, and it must use the same
+  // re-inclusion base as the walk, or a legitimate file is rejected.
+  const root = await makeRoot("reptclip-p11b-");
+  await writeFile(root, ".git/HEAD", "ref: refs/heads/main\n");
+  await writeFile(root, ".gitignore", "/nested/build/\n");
+  await writeFile(root, "nested/.gitignore", "!build/\n");
+  await writeFile(root, "nested/build/sub/file.txt", "x\n");
+  const workspace = path.join(root, "nested", "build");
+
+  try {
+    await fs.symlink(path.join(workspace, "sub"), path.join(workspace, "alias"), "junction");
+  } catch {
+    t.skip("cannot create a directory link in this environment");
+    return;
+  }
+
+  assert.equal(
+    (await createEmbeddingGuard(workspace)("alias/file.txt")).ok,
+    true,
+  );
+});
+
 test("R1 the guard rejects a directory link that leaves the project", async (t) => {
   const root = await makeRoot("reptclip-r1-");
   const outside = await makeRoot("reptclip-r1-out-");
