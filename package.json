@@ -109,7 +109,7 @@
     "build": "node esbuild.js --production",
     "watch": "node esbuild.js --watch",
     "compile": "tsc --noEmit -p ./",
-    "test": "tsx --test src/**/*.test.ts",
+    "test": "tsx --test",
     "package": "vsce package"
   },
   "devDependencies": {
