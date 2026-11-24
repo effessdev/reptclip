@@ -89,27 +89,60 @@ test("parseMoreContextCommands skips empty lines and exact duplicates", () => {
   assert.equal((commands[1] as any).relPath, "b.ts");
 });
 
-test("parseMoreContextCommands refuses a catastrophic regex shape", () => {
-  assert.throws(
-    () => parseMoreContextCommands('grep "(a+)+$" .'),
-    /nested quantifiers/i,
-  );
-  assert.throws(
-    () => parseMoreContextCommands('grep "(a*b)*c" .'),
-    /nested quantifiers/i,
-  );
-  // A quantifier inside a nested group is still a nested quantifier, even when
-  // the inner group is not itself repeated.
-  for (const pattern of ["((a+))+", "((a+)b)+", "((a+)|b)+", "(a{1,3})+", "(?:(a+))+"] as const) {
+test("parseMoreContextCommands refuses the textbook nested-quantifier shape", () => {
+  // A group repeated without bound whose body is one atom that is itself
+  // unbounded. This is the shape the error message names, and the only one a
+  // shape rule still refuses; everything else is bounded by a timeout.
+  for (const pattern of [
+    "(a+)+$",
+    "(a*)*$",
+    "(a+)*$",
+    "((a+))+",
+    "(?:(a+))+",
+    "(a{1,3})+",
+  ] as const) {
     assert.throws(
       () => parseMoreContextCommands(`grep "${pattern}" .`),
       /nested quantifiers/i,
       pattern,
     );
   }
-  // A literal search for the same text, and an ordinary alternation, are fine.
-  assert.equal(parseMoreContextCommands('grep -F "(a+)+$" .').length, 1);
-  assert.equal(parseMoreContextCommands('grep "(foo|bar)+" .').length, 1);
+  // Legal patterns that an earlier, wider rule refused. Each is linear or is
+  // stopped by the timeout in runGrep; none of them is a shape refusal.
+  for (const pattern of [
+    "(a*b)*c",
+    "((a+)b)+",
+    "((a+)|b)+",
+    "^(a?a)+$",
+    "^(a+){20}$",
+    "(\\d{1,3}\\.){3}\\d{1,3}",
+    "^(\\w+)(\\.\\w+)*$",
+    "^https?://[\\w-]+(\\.[\\w-]+)+([^\\s]*)?$",
+  ] as const) {
+    assert.equal(
+      parseMoreContextCommands(`grep "${pattern}" .`).length,
+      1,
+      pattern,
+    );
+  }
+});
+
+test("a search that runs too long is stopped with a clear error", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "reptclip-bound-"));
+  await fs.mkdir(path.join(root, ".git"), { recursive: true });
+  await fs.writeFile(path.join(root, ".git", "HEAD"), "ref: refs/heads/main\n");
+  await fs.writeFile(path.join(root, "a.txt"), "a".repeat(60) + "!\n", "utf8");
+  await fs.writeFile(path.join(root, "b.txt"), "hello\n", "utf8");
+
+  await assert.rejects(
+    () => moreContext(root, 'grep "^(.*a){10}$" .', { grepTimeoutMs: 300 }),
+    /ran for more than 300 ms/,
+  );
+
+  const ok = await moreContext(root, 'grep "hello" .', { grepTimeoutMs: 3000 });
+  assert.match(ok.markdown, /hello/);
+
+  await fs.rm(root, { recursive: true, force: true });
 });
 
 test("the nested-quantifier check is about quantifiers, not punctuation", () => {

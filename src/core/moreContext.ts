@@ -1,5 +1,6 @@
 import * as path from "path";
 import * as fs from "fs/promises";
+import * as vm from "node:vm";
 import { createEmbeddingGuard } from "./gitignoreScanner";
 import { countFileLines, isUtf8TextFile, readFileSafe } from "./fileGuards";
 import { fencedSection } from "./fence";
@@ -35,153 +36,159 @@ export type MoreContextCommand =
     };
 
 /**
- * Catastrophic-backtracking shapes: a quantified group whose body already
- * contains a quantifier (`(a+)+`, `(a*b)*`, `(a?)+`). grepts runs a JS RegExp
- * in-process, so one such pattern freezes the editor with no way to interrupt
- * it. Catching these turns a hang into a clear error; a creative pattern can
- * still be slow, which is why `-F` is offered.
+ * The textbook catastrophic shape: a group repeated without bound whose body is
+ * a single atom that also repeats without bound — `(a+)+`, `(a*)*`,
+ * `((a+))+`. Refusing these turns the most common mistake into an immediate
+ * error instead of a wait.
  *
- * A hand-written scan, not a regex: the obvious regex
- * (`/\((\\.|[^()])*[*+?{](\\.|[^()])*\)[+*{]/`) has two overlapping
- * alternatives, so a run of backslashes inside parentheses makes the *check*
- * itself backtrack exponentially — the guard would hang on the input it is
- * meant to reject. This walk is linear in the pattern length.
+ * The rule is deliberately narrow, and it is not what makes the feature safe.
+ * `runGrep` bounds the whole search with a wall-clock timeout, which is the only
+ * thing that closes the class: a shape rule cannot. Every version of this check
+ * that tried to cover more also refused ordinary patterns such as
+ * `(\d{1,3}\.){3}\d{1,3}` and `^https?://[\w-]+(\.[\w-]+)+…$`.
+ *
+ * A hand-written scan, not a regex, so the check itself stays linear.
  */
 export function hasNestedQuantifier(pattern: string): boolean {
-  /**
-   * Per open group: does the body contain any quantifier, and does it contain
-   * one that can repeat an ambiguous number of times? `?` and a fixed `{n}`
-   * cannot multiply the work; `*`, `+`, `{n,}` and `{n,m}` can.
-   */
-  interface GroupState {
-    any: boolean;
-    amplifying: boolean;
+  interface Group {
+    /** Atoms in the body, all branches counted together. */
+    atoms: number;
+    /** Some atom in the body repeats without bound. */
+    anyUnbounded: boolean;
+    /** The atom just before the closing parenthesis repeats without bound. */
+    lastUnbounded: boolean;
   }
-  const groups: GroupState[] = [];
+  const groups: Group[] = [];
+  const newGroup = (): Group => ({
+    atoms: 0,
+    anyUnbounded: false,
+    lastUnbounded: false,
+  });
+  groups.push(newGroup());
 
   const isDigit = (ch: string | undefined): boolean =>
     ch !== undefined && ch >= "0" && ch <= "9";
 
-  /** A quantifier at `index`: where it ends, and whether it can multiply work. */
+  /** A quantifier at `at`: where it ends, and whether it has no upper bound. */
   const quantifierAt = (
-    index: number,
-  ): { end: number; amplifying: boolean } | null => {
-    const ch = pattern[index];
+    at: number,
+  ): { end: number; unbounded: boolean } | null => {
+    const ch = pattern[at];
+    const lazy = pattern[at + 1] === "?" ? 1 : 0;
     if (ch === "?") {
-      // A trailing `?` makes the quantifier lazy; it is not one more quantifier.
-      return {
-        end: pattern[index + 1] === "?" ? index + 2 : index + 1,
-        amplifying: false,
-      };
+      return { end: at + 1 + lazy, unbounded: false };
     }
     if (ch === "*" || ch === "+") {
-      return {
-        end: pattern[index + 1] === "?" ? index + 2 : index + 1,
-        amplifying: true,
-      };
+      return { end: at + 1 + lazy, unbounded: true };
     }
-    if (ch === "{") {
-      // Scanned by hand: `pattern.slice(index)` per brace copied the whole
-      // tail and made a brace-heavy pattern quadratic.
-      let j = index + 1;
-      const digitsStart = j;
-      while (isDigit(pattern[j])) j += 1;
-      if (j === digitsStart) {
-        return null;
-      }
-      if (pattern[j] === "}") {
-        return { end: j + 1, amplifying: false }; // {n}: fixed, cannot multiply
-      }
-      if (pattern[j] !== ",") {
-        return null;
-      }
-      j += 1;
-      while (isDigit(pattern[j])) j += 1;
-      if (pattern[j] !== "}") {
-        return null;
-      }
-      return { end: j + 1, amplifying: true }; // {n,} or {n,m}: ambiguous split
+    if (ch !== "{") {
+      return null;
     }
-    return null;
-  };
-
-  /** Index of the first character of the group body, after any `(?…)` prefix. */
-  const bodyStart = (open: number): number => {
-    if (pattern[open + 1] !== "?") {
-      return open + 1;
+    let j = at + 1;
+    const lowStart = j;
+    while (isDigit(pattern[j])) j += 1;
+    if (j === lowStart) {
+      return null;
     }
-    const kind = pattern[open + 2];
-    if (kind === ":" || kind === "=" || kind === "!") {
-      return open + 3;
+    const low = pattern.slice(lowStart, j);
+    if (pattern[j] === "}") {
+      return { end: j + 1, unbounded: false }; // {n}
     }
-    if (kind === "<") {
-      const inner = pattern[open + 3];
-      if (inner === "=" || inner === "!") {
-        return open + 4;
-      }
-      const close = pattern.indexOf(">", open + 3);
-      return close === -1 ? open + 3 : close + 1;
+    if (pattern[j] !== ",") {
+      return null;
     }
-    return open + 2;
+    j += 1;
+    const highStart = j;
+    while (isDigit(pattern[j])) j += 1;
+    if (pattern[j] !== "}") {
+      return null;
+    }
+    if (j === highStart) {
+      return { end: j + 1, unbounded: true }; // {n,}
+    }
+    return { end: j + 1, unbounded: pattern.slice(highStart, j) !== low };
   };
 
   let i = 0;
   while (i < pattern.length) {
+    const owner = groups[groups.length - 1];
     const ch = pattern[i];
+
     if (ch === "\\") {
+      owner.atoms += 1;
+      owner.lastUnbounded = false;
       i += 2;
       continue;
     }
     if (ch === "[") {
-      // A quantifier inside a character class is a literal.
       i += 1;
       while (i < pattern.length && pattern[i] !== "]") {
         i += pattern[i] === "\\" ? 2 : 1;
       }
       i += 1;
+      owner.atoms += 1;
+      owner.lastUnbounded = false;
+      continue;
+    }
+    if (ch === "|") {
+      // Alternatives add atoms to the body; a branch never makes it one atom.
+      i += 1;
       continue;
     }
     if (ch === "(") {
-      groups.push({ any: false, amplifying: false });
-      i = bodyStart(i);
+      groups.push(newGroup());
+      i += 1;
+      if (pattern[i] === "?") {
+        const kind = pattern[i + 1];
+        if (kind === ":" || kind === "=" || kind === "!") {
+          i += 2;
+        } else if (kind === "<") {
+          const inner = pattern[i + 2];
+          if (inner === "=" || inner === "!") {
+            i += 3;
+          } else {
+            const close = pattern.indexOf(">", i);
+            i = close === -1 ? i + 1 : close + 1;
+          }
+        } else {
+          i += 1;
+        }
+      }
       continue;
     }
     if (ch === ")") {
-      const body = groups.pop() ?? { any: false, amplifying: false };
-      i += 1;
-      const repeated = quantifierAt(i);
-      if (repeated !== null) {
-        // A group that already repeats ambiguously, repeated again, is the
-        // catastrophic shape: `(a+)+`, and also `((a+))+`, where the inner
-        // group carries the quantifier.
-        if (repeated.amplifying && body.amplifying) {
-          return true;
-        }
-        i = repeated.end;
+      const body = groups.pop();
+      if (body === undefined) {
+        i += 1;
+        continue;
       }
-      const parent = groups[groups.length - 1];
-      if (parent) {
-        // Propagate: a closed group is an atom of its parent's body, so a
-        // quantifier inside it still counts for the parent. Dropping this was
-        // how `((a+))+` slipped through.
-        parent.any = parent.any || body.any || repeated !== null;
-        parent.amplifying =
-          parent.amplifying ||
-          body.amplifying ||
-          (repeated !== null && repeated.amplifying);
+      const quantifier = quantifierAt(i + 1);
+      if (
+        quantifier !== null &&
+        quantifier.unbounded &&
+        body.atoms === 1 &&
+        body.lastUnbounded
+      ) {
+        return true;
       }
+      const parent = groups[groups.length - 1] ?? newGroup();
+      parent.atoms += 1;
+      parent.lastUnbounded = body.anyUnbounded;
+      parent.anyUnbounded = parent.anyUnbounded || body.anyUnbounded;
+      i = quantifier === null ? i + 1 : quantifier.end;
       continue;
     }
     const quantifier = quantifierAt(i);
     if (quantifier !== null) {
-      i = quantifier.end;
-      const owner = groups[groups.length - 1];
-      if (owner) {
-        owner.any = true;
-        owner.amplifying = owner.amplifying || quantifier.amplifying;
+      if (quantifier.unbounded) {
+        owner.lastUnbounded = true;
+        owner.anyUnbounded = true;
       }
+      i = quantifier.end;
       continue;
     }
+    owner.atoms += 1;
+    owner.lastUnbounded = false;
     i += 1;
   }
 
@@ -696,6 +703,44 @@ async function validateSearchPaths(
 type GreptsModule = typeof import("grepts");
 type EmbeddingGuard = ReturnType<typeof createEmbeddingGuard>;
 
+/** How long a single search may run before it is abandoned. */
+export const DEFAULT_GREP_TIMEOUT_MS = 15_000;
+
+/**
+ * Runs a synchronous search under a wall-clock bound.
+ *
+ * grepts matches with `RegExp.test` inside its own loop, and a catastrophic
+ * pattern cannot be interrupted from JavaScript: it is one native call. `vm`
+ * runs the call in a context whose execution V8 can terminate, so the search
+ * returns either its results or a timeout error, never a frozen extension host.
+ * The context is created per search; measured overhead on this project is about
+ * 4 ms.
+ */
+function searchWithTimeout(
+  search: (searchOptions: unknown) => unknown,
+  options: unknown,
+  timeoutMs: number,
+  pattern: string,
+): unknown {
+  try {
+    return vm.runInNewContext("search(options)", { search, options }, {
+      timeout: timeoutMs,
+    });
+  } catch (error) {
+    // The timeout error is created in the vm realm, so `instanceof Error` is
+    // false here; the code is what identifies it.
+    const code = (error as { code?: unknown } | null)?.code;
+    if (code === "ERR_SCRIPT_EXECUTION_TIMEOUT") {
+      throw new Error(
+        `pattern ${JSON.stringify(pattern)} ran for more than ${timeoutMs} ms ` +
+          "and was stopped; narrow the paths, simplify the pattern, or pass -F " +
+          "for a literal search",
+      );
+    }
+    throw error;
+  }
+}
+
 /**
  * Runs one grep via grepts. The sync `search()` is deliberate: `searchAsync`
  * spawns a worker pool whose script path is resolved relative to grepts'
@@ -709,6 +754,7 @@ async function runGrep(
   request: GrepRequest,
   absPaths: string[],
   guard: EmbeddingGuard,
+  timeoutMs: number,
 ): Promise<{ output: string; resultCount: number }> {
   const grepts: GreptsModule = await import("grepts");
   const options = grepts.searchOptionsSchema.parse({
@@ -727,7 +773,12 @@ async function runGrep(
       `Invalid grep pattern ${JSON.stringify(request.pattern)}: ${reason}`,
     );
   }
-  const results = grepts.search(options);
+  const results = searchWithTimeout(
+    grepts.search as (searchOptions: unknown) => unknown,
+    options,
+    timeoutMs,
+    request.pattern,
+  ) as ReturnType<typeof grepts.search>;
   const lines: string[] = [];
   let resultCount = 0;
   // grepts decodes files as UTF-8 without validation, so a legacy-encoded file
@@ -849,9 +900,15 @@ async function renderFileCommand(
 // 7. Public entry point
 // -----------------------------------------------------------------------------
 
+export interface MoreContextOptions {
+  /** Wall-clock bound for one grep, in milliseconds. */
+  grepTimeoutMs?: number;
+}
+
 export async function moreContext(
   rootDir: string,
   commandText: string,
+  options: MoreContextOptions = {},
 ): Promise<MoreContextResult> {
   const commands = parseMoreContextCommands(commandText);
   if (commands.length === 0) {
@@ -878,6 +935,7 @@ export async function moreContext(
       command.request,
       command.absPaths,
       guard,
+      options.grepTimeoutMs ?? DEFAULT_GREP_TIMEOUT_MS,
     );
     sections.push(renderSection(command.line, result.output));
     searchCount++;

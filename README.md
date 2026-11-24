@@ -204,7 +204,7 @@ Paste-ready command blocks don't come only from you. The "AI instructions" secti
 Each non-empty line is one command, and the results appear in the order you pasted:
 
 - **`cat <path>`** reads a file, e.g. `cat src/main.py` or `cat "docs/my file.md"`. Paths are quote-aware, but each `cat` takes exactly one path. `cat this fails` is an error, not two files.
-- **`grep <flags> <pattern> [paths...]`** searches file contents using [grepts](https://github.com/ahmadawais/grepts), a TypeScript grep that runs in-process (no subprocess). Without paths it searches the whole project; with paths it searches only those files and directories. Patterns with nested quantifiers (`(a+)+`) are refused, because one of those would freeze the editor with no way to interrupt it; use `-F` for a literal search.
+- **`grep <flags> <pattern> [paths...]`** searches file contents using [grepts](https://github.com/ahmadawais/grepts), a TypeScript grep that runs in-process (no subprocess). Without paths it searches the whole project; with paths it searches only those files and directories. The textbook nested-quantifier shape (`(a+)+`) is refused outright, and every search runs under a 15-second wall-clock bound: a pattern that is slower than that is stopped with an error instead of freezing the editor, because a shape check cannot catch every slow pattern. Use `-F` for a literal search.
 - **`read-lines <path> <start_line> [end_line]`** reads a 1-indexed, inclusive range of lines from a file, e.g. `read-lines src/main.py 10 25`. `end_line` is optional. Omit it to read to the end of the file. If it's higher than the file's total line count, the range is simply clamped to the end of the file instead of erroring.
 
 For example, this clipboard block:
