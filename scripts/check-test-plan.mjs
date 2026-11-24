@@ -9,6 +9,7 @@
 // The floor is deliberately explicit. Lowering it is a decision someone has to
 // make in a review, not something that happens by accident.
 import { spawn } from "node:child_process";
+import * as fs from "node:fs";
 import { createRequire } from "node:module";
 import * as path from "node:path";
 
@@ -26,6 +27,14 @@ const MIN_TESTS = 130;
  */
 const MAX_SKIPPED = 10;
 
+/**
+ * A test file that terminates its own process hides every test after it: the
+ * runner only counts what it saw, so the plan shrinks by a few and the floor's
+ * slack absorbs it. Measured: a file whose second test calls `process.exit(0)`
+ * left the run green with one test missing from the plan.
+ */
+const FORBIDDEN_IN_TESTS = /process\.(exit|abort|kill)\s*\(/;
+
 const require = createRequire(import.meta.url);
 let cli;
 try {
@@ -34,6 +43,38 @@ try {
 } catch {
   console.error("tsx is not installed; run npm ci first");
   process.exit(2);
+}
+
+function findTests(dir, found = []) {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (entry.name === "node_modules" || entry.name === ".git") {
+      continue;
+    }
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      findTests(full, found);
+    } else if (/\.test\.(ts|tsx|js|mjs|cjs)$/.test(entry.name)) {
+      found.push(full);
+    }
+  }
+  return found;
+}
+
+let offenders = 0;
+for (const file of findTests(process.cwd())) {
+  const lines = fs.readFileSync(file, "utf8").split(/\r?\n/);
+  lines.forEach((line, index) => {
+    if (FORBIDDEN_IN_TESTS.test(line)) {
+      console.error(
+        `${path.relative(process.cwd(), file)}:${index + 1}: a test must not ` +
+          "terminate the process; it hides the remaining tests in the file",
+      );
+      offenders += 1;
+    }
+  });
+}
+if (offenders > 0) {
+  process.exit(1);
 }
 
 const child = spawn(
