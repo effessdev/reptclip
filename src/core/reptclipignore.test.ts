@@ -217,6 +217,51 @@ test("R11 a lexical .git path is refused before resolution", async (t) => {
   assert.match(verdict.reason ?? "", /never embedded/);
 });
 
+test("R12 an alias cannot reach a file whose ancestor is excluded", async (t) => {
+  const root = await makeRoot("reptclip-r12-");
+  // Both rules in one source: the deepest level returns `unignored` for the
+  // file, so the file verdict alone accepts it. The ancestor is what excludes.
+  await writeFile(root, ".gitignore", "private/\n");
+  await writeFile(root, "private/.gitignore", "!secret.txt\n");
+  await writeFile(root, "private/secret.txt", "s\n");
+  try {
+    await fs.symlink(
+      path.join(root, "private", "secret.txt"),
+      path.join(root, "alias.txt"),
+      "file",
+    );
+  } catch {
+    t.skip("cannot create a file link in this environment");
+    return;
+  }
+
+  const guard = createEmbeddingGuard(root);
+  assert.equal((await guard("private/secret.txt")).ok, false);
+  const alias = await guard("alias.txt");
+  assert.equal(alias.ok, false, `alias was accepted: ${JSON.stringify(alias)}`);
+});
+
+test("R13 the same alias rule holds for .reptclipignore", async (t) => {
+  const root = await makeRoot("reptclip-r13-");
+  await writeFile(root, ".reptclipignore", "private/\n");
+  await writeFile(root, "private/.reptclipignore", "!secret.txt\n");
+  await writeFile(root, "private/secret.txt", "s\n");
+  try {
+    await fs.symlink(
+      path.join(root, "private", "secret.txt"),
+      path.join(root, "alias.txt"),
+      "file",
+    );
+  } catch {
+    t.skip("cannot create a file link in this environment");
+    return;
+  }
+
+  const guard = createEmbeddingGuard(root);
+  assert.equal((await guard("private/secret.txt")).ok, false);
+  assert.equal((await guard("alias.txt")).ok, false);
+});
+
 test("R9 the ignore file itself is listed, like .gitignore", async () => {
   const root = await makeRoot("reptclip-r9-");
   await writeFile(root, ".reptclipignore", "*.log\n");

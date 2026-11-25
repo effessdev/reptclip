@@ -536,6 +536,44 @@ export function createEmbeddingGuard(
     return pending;
   };
 
+  /**
+   * Walks `target`'s ancestors from the workspace root, per source, and returns
+   * the first source that excludes one of them together with the re-inclusion
+   * bases found on the way. A file verdict alone is not enough: the deepest
+   * level can say `unignored` for a file while an ancestor is still excluded,
+   * which is exactly how an alias slips past the lexical check.
+   */
+  const walkAncestors = async (
+    target: string,
+    inheritedBases: ReincludeBases,
+  ): Promise<{ ignored: "git" | "clip" | null; bases: ReincludeBases }> => {
+    const bases: ReincludeBases = { ...inheritedBases };
+    let ancestor = rootBase;
+    const parts = path
+      .relative(rootBase, target)
+      .split(path.sep)
+      .slice(0, -1);
+    for (const segment of parts) {
+      ancestor = path.join(ancestor, segment);
+      const sources = await levelsFor(path.dirname(ancestor));
+      const gitVerdict = verdictOf(ancestor, true, sources.git, bases.git);
+      const clipVerdict = verdictOf(ancestor, true, sources.clip, bases.clip);
+      if (gitVerdict === "ignored") {
+        return { ignored: "git", bases };
+      }
+      if (clipVerdict === "ignored") {
+        return { ignored: "clip", bases };
+      }
+      if (gitVerdict === "unignored") {
+        bases.git = ancestor;
+      }
+      if (clipVerdict === "unignored") {
+        bases.clip = ancestor;
+      }
+    }
+    return { ignored: null, bases };
+  };
+
   return async (relPath: string): Promise<EmbedVerdict> => {
     const segments = relPath.split(/[\\/]+/).filter(Boolean);
 
@@ -588,12 +626,22 @@ export function createEmbeddingGuard(
     }
     if (realRel.length > 0 && realRel.join("/") !== segments.join("/")) {
       const realAbs = path.join(rootBase, ...realRel);
+      const realWalk = await walkAncestors(realAbs, inheritedBases);
+      if (realWalk.ignored !== null) {
+        return {
+          ok: false,
+          reason: ignoreReason(
+            realWalk.ignored === "git",
+            realWalk.ignored === "clip",
+          ),
+        };
+      }
       const realSources = await levelsFor(path.dirname(realAbs));
       const realGit =
-        verdictOf(realAbs, false, realSources.git, inheritedBases.git) ===
+        verdictOf(realAbs, false, realSources.git, realWalk.bases.git) ===
         "ignored";
       const realClip =
-        verdictOf(realAbs, false, realSources.clip, inheritedBases.clip) ===
+        verdictOf(realAbs, false, realSources.clip, realWalk.bases.clip) ===
         "ignored";
       if (realGit || realClip) {
         return { ok: false, reason: ignoreReason(realGit, realClip) };
@@ -606,34 +654,18 @@ export function createEmbeddingGuard(
     // ancestor, and that re-inclusion carries to its contents. Walk the
     // ancestors first to find the innermost re-included directory per source,
     // then evaluate the file relative to it for shallower levels.
-    const relativeToRoot = path.relative(rootBase, absPath);
     // The workspace folder itself can be the re-included directory (a root rule
     // excludes `nested/build/`, `nested/.gitignore` says `!build/`, and the
     // panel is opened on `nested/build`). Starting from the inherited bases
-    // keeps its files, which the loop below never revisits.
-    const bases: ReincludeBases = { ...inheritedBases };
-    let ancestor = rootBase;
-    for (const segment of relativeToRoot.split(path.sep).slice(0, -1)) {
-      ancestor = path.join(ancestor, segment);
-      const ancestorSources = await levelsFor(path.dirname(ancestor));
-      const gitVerdict = verdictOf(ancestor, true, ancestorSources.git, bases.git);
-      const clipVerdict = verdictOf(ancestor, true, ancestorSources.clip, bases.clip);
-      if (gitVerdict === "ignored" || clipVerdict === "ignored") {
-        return {
-          ok: false,
-          reason: ignoreReason(
-            gitVerdict === "ignored",
-            clipVerdict === "ignored",
-          ),
-        };
-      }
-      if (gitVerdict === "unignored") {
-        bases.git = ancestor;
-      }
-      if (clipVerdict === "unignored") {
-        bases.clip = ancestor;
-      }
+    // keeps its files, which the walk below never revisits.
+    const walk = await walkAncestors(absPath, inheritedBases);
+    if (walk.ignored !== null) {
+      return {
+        ok: false,
+        reason: ignoreReason(walk.ignored === "git", walk.ignored === "clip"),
+      };
     }
+    const bases = walk.bases;
 
     const gitIgnored =
       verdictOf(absPath, false, sources.git, bases.git) === "ignored";
