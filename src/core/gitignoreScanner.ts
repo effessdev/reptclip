@@ -334,6 +334,12 @@ async function readExcludePatterns(rootDir: string): Promise<string | null> {
 interface InheritedLevels {
   levels: IgnoreLevel[];
   excluded?: string;
+  /**
+   * Set when the workspace folder itself is re-included by a `.gitignore`
+   * below an ancestor that excludes it. Descendant paths are then judged
+   * relative to this directory, exactly as the walker does inside the tree.
+   */
+  reincludeBase?: string;
 }
 
 async function inheritedLevels(
@@ -373,7 +379,10 @@ async function inheritedLevels(
     }
     dir = child;
   }
-  return { levels };
+  // The base must come back with the levels: a workspace that a deeper
+  // `.gitignore` re-includes has its files judged relative to itself, and a
+  // caller that starts from `undefined` drops every one of them.
+  return { levels, reincludeBase };
 }
 
 /**
@@ -413,16 +422,14 @@ export async function collectNonIgnoredFiles(
   // real paths.
   const root = await fs.realpath(rootDir).catch(() => path.resolve(rootDir));
   const ignorecase = await detectIgnoreCase(root);
-  const { levels: inherited, excluded } = await inheritedLevels(
-    root,
-    ignorecase,
-  );
+  const { levels: inherited, excluded, reincludeBase } =
+    await inheritedLevels(root, ignorecase);
   if (excluded) {
     // git ignores the workspace folder itself, so nothing inside it is a file
     // git would track.
     return [];
   }
-  await walk(root, root, inherited, results, undefined, ignorecase);
+  await walk(root, root, inherited, results, reincludeBase, ignorecase);
   return results.sort();
 }
 
@@ -464,8 +471,11 @@ export function createEmbeddingGuard(
   const settings = rootRealPromise.then(async (real) => {
     rootBase = real ?? rootNorm;
     const ignorecase = await detectIgnoreCase(rootBase);
-    const { levels, excluded } = await inheritedLevels(rootBase, ignorecase);
-    return { levels, ignorecase, excluded };
+    const { levels, excluded, reincludeBase } = await inheritedLevels(
+      rootBase,
+      ignorecase,
+    );
+    return { levels, ignorecase, excluded, reincludeBase };
   });
 
   // Ignore levels for `dirAbs`, inherited from its ancestors and extended by
@@ -513,7 +523,7 @@ export function createEmbeddingGuard(
     if (rootReal === undefined) {
       return { ok: false, reason: "project root is not readable" };
     }
-    const { excluded } = await settings;
+    const { excluded, reincludeBase: inheritedBase } = await settings;
     if (excluded) {
       // An ancestor rule excludes the workspace folder itself; git re-includes
       // nothing below it, not even through a `.gitignore` in here.
@@ -546,7 +556,7 @@ export function createEmbeddingGuard(
     if (realRel.length > 0 && realRel.join("/") !== segments.join("/")) {
       const realAbs = path.join(rootBase, ...realRel);
       const realLevels = await levelsFor(path.dirname(realAbs));
-      if (verdictOf(realAbs, false, realLevels) === "ignored") {
+      if (verdictOf(realAbs, false, realLevels, inheritedBase) === "ignored") {
         return { ok: false, reason: "ignored by .gitignore" };
       }
     }
@@ -560,7 +570,11 @@ export function createEmbeddingGuard(
     // find the innermost re-included directory, then evaluate the file
     // relative to it for shallower levels.
     const relativeToRoot = path.relative(rootBase, absPath);
-    let reincludeBase: string | undefined;
+    // The workspace folder itself can be the re-included directory (a root
+    // rule excludes `nested/build/`, `nested/.gitignore` says `!build/`, and
+    // the panel is opened on `nested/build`). Starting from the inherited base
+    // keeps its files, which the loop below never revisits.
+    let reincludeBase: string | undefined = inheritedBase;
     let ancestor = rootBase;
     for (const segment of relativeToRoot.split(path.sep).slice(0, -1)) {
       ancestor = path.join(ancestor, segment);

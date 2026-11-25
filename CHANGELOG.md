@@ -1,3 +1,7 @@
+## v2.1.2
+
+- Keep the files of a workspace folder that a `.gitignore` above it re-includes (`/nested/build/` in the root, `!build/` in `nested/`), instead of treating the whole workspace as ignored. (by [ManSio](https://github.com/ManSio))
+
 ## v2.1.1
 
 - Size Markdown code fences dynamically to prevent attached files containing backtick lines from closing sections prematurely, and embed file contents verbatim without trimming trailing whitespace. (by [ManSio](https://github.com/ManSio))
