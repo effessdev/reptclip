@@ -35,5 +35,7 @@ test("panel keeps attach/exclude inputs in a responsive split layout", () => {
   assert.match(webviewJs, /Context copied to clipboard/);
   assert.match(webviewJs, /Context written to file/);
   assert.match(webviewJs, /copiedToClipboard && message\.writtenToFile/);
-  assert.match(webviewJs, /file\(s\) included/);
+  assert.match(webviewJs, /file\(s\) attached/);
+  assert.doesNotMatch(webviewJs, /file\(s\) included/);
+  assert.match(webviewJs, /file\(s\) in Project structure/);
 });

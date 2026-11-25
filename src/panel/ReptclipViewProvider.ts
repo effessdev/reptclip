@@ -257,6 +257,7 @@ export class ReptclipViewProvider implements vscode.WebviewViewProvider {
                 type: "runResult",
                 ok: true,
                 fileCount: result.attachedFiles.length,
+                structureFileCount: result.allFiles.length,
                 copiedToClipboard: message.state.clipboard,
                 writtenToFile: message.state.outputFile.trim().length > 0,
                 tokenCount: result.tokenCount,

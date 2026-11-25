@@ -49,6 +49,7 @@ export type HostToWebviewMessage =
       type: "runResult";
       ok: true;
       fileCount: number;
+      structureFileCount?: number;
       copiedToClipboard: boolean;
       writtenToFile: boolean;
       tokenCount: number;

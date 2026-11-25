@@ -627,12 +627,17 @@
             ? ` ~${formatTokenCount(message.tokenCount)} token(s).`
             : "";
 
+        const structureSuffix =
+          message.structureFileCount !== undefined
+            ? ` ${message.structureFileCount} file(s) in Project structure.`
+            : "";
+
         setStatus(
           message.searchCount === undefined
             ? message.fileCount === 0
-              ? `${destinationStatus}. No files attached.${tokenSuffix}`
-              : `${destinationStatus}. ${message.fileCount} file(s) included.${tokenSuffix}`
-            : `${destinationStatus}. ${message.fileCount} file(s) included, ${message.searchCount} search(es) run, ${message.searchResultCount ?? 0} result(s) found.${tokenSuffix}`,
+              ? `${destinationStatus}. No files attached.${structureSuffix}${tokenSuffix}`
+              : `${destinationStatus}. ${message.fileCount} file(s) attached.${structureSuffix}${tokenSuffix}`
+            : `${destinationStatus}. ${message.fileCount} file(s) attached, ${message.searchCount} search(es) run, ${message.searchResultCount ?? 0} result(s) found.${structureSuffix}${tokenSuffix}`,
         );
       } else {
         setStatus(`Error: ${message.error}`, true);
