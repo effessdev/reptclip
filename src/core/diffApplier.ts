@@ -68,7 +68,8 @@ export interface ApplyOptions {
   confirmSuspiciousReplace?: (files: string[]) => Promise<boolean>;
 
   /**
-   * Resolve true to create, modify, delete, or move a `.gitignore` file.
+   * Resolve true to create, modify, delete, or move a `.gitignore` or
+ * `.reptclipignore` file.
    * Changing one can un-ignore previously protected paths, so the host must
    * warn the user explicitly before this is allowed to proceed.
    */
@@ -167,22 +168,23 @@ function stripAdsSuffix(relative: string): string {
   return segments.join("/");
 }
 
-/**
- * Whether a diff path's final segment is `.gitignore`.
- */
-function isGitignoreFile(relative: string): boolean {
+/** The files whose edit changes what is protected from the chatbot. */
+const PROTECTION_FILE_NAMES = new Set([".gitignore", ".reptclipignore"]);
+
+/** Whether a diff path's final segment is one of the protection files. */
+function isProtectionFile(relative: string): boolean {
   const base = stripAdsSuffix(relative).split("/").pop()!.toLowerCase();
-  return base === ".gitignore";
+  return PROTECTION_FILE_NAMES.has(base);
 }
 
 /**
- * Whether `absPath` is the *same file* as a `.gitignore`, without being
+ * Whether `absPath` is the *same file* as a protection file, without being
  * spelled that way. Symbolic links and junctions resolve through
  * `realRelPath`; hard links do not — they are one inode under two names — so
- * the only way to see them is to compare the inode with every `.gitignore`
+ * the only way to see them is to compare the inode with every protection file
  * on the target's ancestor chain.
  */
-async function aliasesGitignoreFile(absPath: string): Promise<boolean> {
+async function aliasesProtectionFile(absPath: string): Promise<boolean> {
   let target;
   try {
     target = await fs.stat(absPath, { bigint: true });
@@ -197,15 +199,15 @@ async function aliasesGitignoreFile(absPath: string): Promise<boolean> {
   // *ancestor* `.gitignore` is just as dangerous as one to a file in here.
   let dir = path.dirname(path.resolve(absPath));
   for (;;) {
-    try {
-      const candidate = await fs.stat(path.join(dir, ".gitignore"), {
-        bigint: true,
-      });
-      if (candidate.dev === target.dev && candidate.ino === target.ino) {
-        return true;
+    for (const name of PROTECTION_FILE_NAMES) {
+      try {
+        const candidate = await fs.stat(path.join(dir, name), { bigint: true });
+        if (candidate.dev === target.dev && candidate.ino === target.ino) {
+          return true;
+        }
+      } catch {
+        // No such file at this level; try the other name.
       }
-    } catch {
-      // No .gitignore at this level; keep walking up.
     }
     const parent = path.dirname(dir);
     if (parent === dir) {
@@ -874,9 +876,9 @@ async function validateGitignoreEdits(
     const target = targets[index];
 
     if (
-      isGitignoreFile(block.file) ||
-      isGitignoreFile(target.realRelPath) ||
-      (await aliasesGitignoreFile(target.absPath))
+      isProtectionFile(block.file) ||
+      isProtectionFile(target.realRelPath) ||
+      (await aliasesProtectionFile(target.absPath))
     ) {
       gitignoreTouches.add(block.file);
     }
@@ -887,9 +889,9 @@ async function validateGitignoreEdits(
       block.kind === "move" &&
       block.destination &&
       destination &&
-      (isGitignoreFile(block.destination) ||
-        isGitignoreFile(destination.realRelPath) ||
-        (await aliasesGitignoreFile(destination.absPath)))
+      (isProtectionFile(block.destination) ||
+        isProtectionFile(destination.realRelPath) ||
+        (await aliasesProtectionFile(destination.absPath)))
     ) {
       gitignoreTouches.add(block.destination);
     }
@@ -903,9 +905,9 @@ async function validateGitignoreEdits(
 
   if (!options.confirmGitignoreEdits) {
     throw new Error(
-      `Refusing to modify .gitignore without confirmation: ${files.join(", ")}. ` +
-        "Changing .gitignore can un-ignore sensitive files such as .env. " +
-        "Confirm explicitly to proceed.",
+      `Refusing to modify ${files.join(", ")} without confirmation ` +
+        "(.gitignore/.reptclipignore). Changing an ignore file can un-ignore " +
+        "sensitive files such as .env. Confirm explicitly to proceed.",
     );
   }
 
@@ -913,7 +915,7 @@ async function validateGitignoreEdits(
 
   if (!confirmed) {
     throw new Error(
-      `Apply cancelled: changes to .gitignore were not confirmed (${files.join(", ")}).`,
+      `Apply cancelled: changes to ${files.join(", ")} were not confirmed.`,
     );
   }
 }

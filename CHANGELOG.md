@@ -1,3 +1,7 @@
+## v2.1.3
+
+- Read `.reptclipignore` files as an additional exclusion source: same syntax and anchoring as `.gitignore`, layered per directory, able to re-include its own rules and never able to re-include a file git ignores. Editing the file asks for confirmation, like `.gitignore`. (by [ManSio](https://github.com/ManSio))
+
 ## v2.1.2
 
 - Keep the files of a workspace folder that a `.gitignore` above it re-includes (`/nested/build/` in the root, `!build/` in `nested/`), instead of treating the whole workspace as ignored. (by [ManSio](https://github.com/ManSio))

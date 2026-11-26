@@ -379,7 +379,7 @@ export class ReptclipViewProvider implements vscode.WebviewViewProvider {
                 },
                 confirmGitignoreEdits: async (paths) => {
                   const choice = await vscode.window.showWarningMessage(
-                    `This diff modifies .gitignore (${paths.join(", ")}). Changing it can un-ignore sensitive files, such as .env, so they would start being read and written by ReptClip. Apply anyway?`,
+                    `This diff modifies an ignore file (${paths.join(", ")}). Changing it can un-ignore sensitive files, such as .env, so they would start being read and written by ReptClip. Apply anyway?`,
                     { modal: true },
                     "Apply anyway",
                   );

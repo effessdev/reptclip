@@ -22,6 +22,9 @@ interface IgnoreLevel {
 
 const ALWAYS_IGNORED_DIR_NAMES = new Set([".git"]);
 
+/** The application-specific ignore file, read next to every `.gitignore`. */
+const PROTECTION_FILE = ".reptclipignore";
+
 /** Builds a level, splitting directory patterns so a re-include can be scoped. */
 function makeLevel(
   dir: string,
@@ -331,15 +334,26 @@ async function readExcludePatterns(rootDir: string): Promise<string | null> {
  * folder itself: git applies nothing from inside an excluded directory, so both
  * entry points must see no files at all.
  */
+interface IgnoreSources {
+  git: IgnoreLevel[];
+  clip: IgnoreLevel[];
+}
+
+/** Per-source re-inclusion base; the two sources re-include independently. */
+interface ReincludeBases {
+  git?: string;
+  clip?: string;
+}
+
 interface InheritedLevels {
-  levels: IgnoreLevel[];
-  excluded?: string;
+  levels: IgnoreSources;
+  bases: ReincludeBases;
   /**
-   * Set when the workspace folder itself is re-included by a `.gitignore`
-   * below an ancestor that excludes it. Descendant paths are then judged
-   * relative to this directory, exactly as the walker does inside the tree.
+   * Set when the workspace folder itself is excluded by an ancestor rule of
+   * either source. Descendant paths are then judged relative to the source's
+   * own re-inclusion base, exactly as the walker does inside the tree.
    */
-  reincludeBase?: string;
+  excluded?: string;
 }
 
 async function inheritedLevels(
@@ -347,49 +361,50 @@ async function inheritedLevels(
   ignorecase: boolean,
 ): Promise<InheritedLevels> {
   const repository = await resolveRepository(rootDir);
-  const levels: IgnoreLevel[] = [];
+  const levels: IgnoreSources = { git: [], clip: [] };
+  const bases: ReincludeBases = {};
   const exclude = await readExcludePatterns(rootDir);
   if (exclude !== null) {
-    levels.push(makeLevel(repository.root, exclude, ignorecase));
+    levels.git.push(makeLevel(repository.root, exclude, ignorecase));
   }
 
   const relative = path.relative(repository.root, path.resolve(rootDir));
   if (isOutsidePath(relative)) {
-    return { levels };
+    return { levels, bases };
   }
   const segments = relative === "" ? [] : relative.split(path.sep);
   let dir = repository.root;
-  let reincludeBase: string | undefined;
   for (const segment of segments) {
-    const content = await readIgnoreFile(path.join(dir, ".gitignore"));
-    if (content !== null) {
-      levels.push(makeLevel(dir, content, ignorecase));
+    const git = await readIgnoreFile(path.join(dir, ".gitignore"));
+    if (git !== null) {
+      levels.git.push(makeLevel(dir, git, ignorecase));
+    }
+    const clip = await readIgnoreFile(path.join(dir, PROTECTION_FILE));
+    if (clip !== null) {
+      levels.clip.push(makeLevel(dir, clip, ignorecase));
     }
     const child = path.join(dir, segment);
-    // git never re-includes anything under an excluded directory, so a
-    // descendant `.gitignore` cannot rescue a workspace that an ancestor rule
-    // already excluded. Judge each step on the way down, with the same levels
-    // and the same re-include base the file walk uses.
-    const verdict = verdictOf(child, true, levels, reincludeBase);
-    if (verdict === "ignored") {
-      return { levels, excluded: child };
+    // Neither source may re-include anything under a directory it excludes, so
+    // judge each step on the way down, with that source's own levels and base.
+    const gitVerdict = verdictOf(child, true, levels.git, bases.git);
+    const clipVerdict = verdictOf(child, true, levels.clip, bases.clip);
+    if (gitVerdict === "ignored" || clipVerdict === "ignored") {
+      return { levels, bases, excluded: child };
     }
-    if (verdict === "unignored") {
-      reincludeBase = child;
+    if (gitVerdict === "unignored") {
+      bases.git = child;
+    }
+    if (clipVerdict === "unignored") {
+      bases.clip = child;
     }
     dir = child;
   }
-  // The base must come back with the levels: a workspace that a deeper
-  // `.gitignore` re-includes has its files judged relative to itself, and a
-  // caller that starts from `undefined` drops every one of them.
-  return { levels, reincludeBase };
+  // The bases must come back with the levels: a workspace that a deeper ignore
+  // file re-includes has its files judged relative to itself, and a caller that
+  // starts from `undefined` drops every one of them.
+  return { levels, bases };
 }
 
-/**
- * `relative` is outside its base when it is `..` itself, starts with `..` plus a
- * separator, or is absolute. A name like `..workspace` only *looks* like a
- * parent traversal.
- */
 function isOutsidePath(relative: string): boolean {
   return (
     relative === ".." ||
@@ -418,19 +433,26 @@ export async function collectNonIgnoredFiles(
 ): Promise<string[]> {
   const results: string[] = [];
   // Walk the real directory: a workspace opened through a junction must still
-  // find the repository above it, and its `.gitignore` levels are anchored to
-  // real paths.
+  // find the repository above it, and its ignore levels are anchored to real
+  // paths.
   const root = await fs.realpath(rootDir).catch(() => path.resolve(rootDir));
   const ignorecase = await detectIgnoreCase(root);
-  const { levels: inherited, excluded, reincludeBase } =
-    await inheritedLevels(root, ignorecase);
+  const { levels, bases, excluded } = await inheritedLevels(root, ignorecase);
   if (excluded) {
-    // git ignores the workspace folder itself, so nothing inside it is a file
-    // git would track.
+    // An ancestor rule excludes the workspace folder itself, so nothing inside
+    // it is a file git (or the project) would track.
     return [];
   }
-  await walk(root, root, inherited, results, reincludeBase, ignorecase);
+  await walk(root, root, levels, bases, results, ignorecase);
   return results.sort();
+}
+
+/** Names the ignore file(s) that excluded a path, for the panel message. */
+function ignoreReason(gitIgnored: boolean, clipIgnored: boolean): string {
+  if (gitIgnored && clipIgnored) {
+    return "ignored by .gitignore and .reptclipignore";
+  }
+  return clipIgnored ? "ignored by .reptclipignore" : "ignored by .gitignore";
 }
 
 /** Verdict from the embedding guard: may this path be read into context? */
@@ -464,24 +486,24 @@ export function createEmbeddingGuard(
 ): (relPath: string) => Promise<EmbedVerdict> {
   const rootNorm = path.normalize(rootDir);
   const rootRealPromise = fs.realpath(rootNorm).catch(() => undefined);
-  const levelsCache = new Map<string, Promise<IgnoreLevel[]>>();
+  const levelsCache = new Map<string, Promise<IgnoreSources>>();
   // All path rules are evaluated against the real directory, so a workspace
-  // opened through a junction still sees the repository's `.gitignore` levels.
+  // opened through a junction still sees the repository's ignore levels.
   let rootBase = rootNorm;
   const settings = rootRealPromise.then(async (real) => {
     rootBase = real ?? rootNorm;
     const ignorecase = await detectIgnoreCase(rootBase);
-    const { levels, excluded, reincludeBase } = await inheritedLevels(
+    const { levels, bases, excluded } = await inheritedLevels(
       rootBase,
       ignorecase,
     );
-    return { levels, ignorecase, excluded, reincludeBase };
+    return { levels, bases, ignorecase, excluded };
   });
 
-  // Ignore levels for `dirAbs`, inherited from its ancestors and extended by
-  // its own .gitignore when present. Memoized per directory, so checking many
-  // files in one folder reads that folder's .gitignore once.
-  const levelsFor = (dirAbs: string): Promise<IgnoreLevel[]> => {
+  // Levels for `dirAbs`, inherited from its ancestors and extended by its own
+  // ignore files when present. Memoized per directory, so checking many files
+  // in one folder reads that folder's files once.
+  const levelsFor = (dirAbs: string): Promise<IgnoreSources> => {
     const key = path.normalize(dirAbs);
     const cached = levelsCache.get(key);
     if (cached) {
@@ -493,14 +515,63 @@ export function createEmbeddingGuard(
       const parent = path.dirname(key);
       const inherited =
         key === rootBase || parent === key ? levels : await levelsFor(parent);
-      const content = await readIgnoreFile(path.join(key, ".gitignore"));
-      return content === null
-        ? inherited
-        : [...inherited, makeLevel(key, content, ignorecase)];
+      const git = await readIgnoreFile(path.join(key, ".gitignore"));
+      const clip = await readIgnoreFile(path.join(key, PROTECTION_FILE));
+      if (git === null && clip === null) {
+        return inherited;
+      }
+      return {
+        git:
+          git === null
+            ? inherited.git
+            : [...inherited.git, makeLevel(key, git, ignorecase)],
+        clip:
+          clip === null
+            ? inherited.clip
+            : [...inherited.clip, makeLevel(key, clip, ignorecase)],
+      };
     })();
 
     levelsCache.set(key, pending);
     return pending;
+  };
+
+  /**
+   * Walks `target`'s ancestors from the workspace root, per source, and returns
+   * the first source that excludes one of them together with the re-inclusion
+   * bases found on the way. A file verdict alone is not enough: the deepest
+   * level can say `unignored` for a file while an ancestor is still excluded,
+   * which is exactly how an alias slips past the lexical check.
+   */
+  const walkAncestors = async (
+    target: string,
+    inheritedBases: ReincludeBases,
+  ): Promise<{ ignored: "git" | "clip" | null; bases: ReincludeBases }> => {
+    const bases: ReincludeBases = { ...inheritedBases };
+    let ancestor = rootBase;
+    const parts = path
+      .relative(rootBase, target)
+      .split(path.sep)
+      .slice(0, -1);
+    for (const segment of parts) {
+      ancestor = path.join(ancestor, segment);
+      const sources = await levelsFor(path.dirname(ancestor));
+      const gitVerdict = verdictOf(ancestor, true, sources.git, bases.git);
+      const clipVerdict = verdictOf(ancestor, true, sources.clip, bases.clip);
+      if (gitVerdict === "ignored") {
+        return { ignored: "git", bases };
+      }
+      if (clipVerdict === "ignored") {
+        return { ignored: "clip", bases };
+      }
+      if (gitVerdict === "unignored") {
+        bases.git = ancestor;
+      }
+      if (clipVerdict === "unignored") {
+        bases.clip = ancestor;
+      }
+    }
+    return { ignored: null, bases };
   };
 
   return async (relPath: string): Promise<EmbedVerdict> => {
@@ -523,13 +594,13 @@ export function createEmbeddingGuard(
     if (rootReal === undefined) {
       return { ok: false, reason: "project root is not readable" };
     }
-    const { excluded, reincludeBase: inheritedBase } = await settings;
+    const { excluded, bases: inheritedBases } = await settings;
     if (excluded) {
-      // An ancestor rule excludes the workspace folder itself; git re-includes
-      // nothing below it, not even through a `.gitignore` in here.
+      // An ancestor rule excludes the workspace folder itself; nothing below it
+      // is re-included, not even through an ignore file in here.
       return {
         ok: false,
-        reason: "the workspace folder is ignored by .gitignore",
+        reason: "the workspace folder is ignored by .gitignore or .reptclipignore",
       };
     }
     const absPath = path.normalize(path.join(rootReal, ...segments));
@@ -555,41 +626,53 @@ export function createEmbeddingGuard(
     }
     if (realRel.length > 0 && realRel.join("/") !== segments.join("/")) {
       const realAbs = path.join(rootBase, ...realRel);
-      const realLevels = await levelsFor(path.dirname(realAbs));
-      if (verdictOf(realAbs, false, realLevels, inheritedBase) === "ignored") {
-        return { ok: false, reason: "ignored by .gitignore" };
+      const realWalk = await walkAncestors(realAbs, inheritedBases);
+      if (realWalk.ignored !== null) {
+        return {
+          ok: false,
+          reason: ignoreReason(
+            realWalk.ignored === "git",
+            realWalk.ignored === "clip",
+          ),
+        };
+      }
+      const realSources = await levelsFor(path.dirname(realAbs));
+      const realGit =
+        verdictOf(realAbs, false, realSources.git, realWalk.bases.git) ===
+        "ignored";
+      const realClip =
+        verdictOf(realAbs, false, realSources.clip, realWalk.bases.clip) ===
+        "ignored";
+      if (realGit || realClip) {
+        return { ok: false, reason: ignoreReason(realGit, realClip) };
       }
     }
 
-    const levels = await levelsFor(path.dirname(absPath));
+    const sources = await levelsFor(path.dirname(absPath));
 
-    // Git re-includes a directory when a deeper .gitignore negates a pattern
-    // from an ancestor, and that re-inclusion carries to its contents: a
-    // `nested/build/` exclusion in the root does not hide files under a
-    // `!build/` re-include in `nested/.gitignore`. Walk the ancestors first to
-    // find the innermost re-included directory, then evaluate the file
-    // relative to it for shallower levels.
-    const relativeToRoot = path.relative(rootBase, absPath);
-    // The workspace folder itself can be the re-included directory (a root
-    // rule excludes `nested/build/`, `nested/.gitignore` says `!build/`, and
-    // the panel is opened on `nested/build`). Starting from the inherited base
-    // keeps its files, which the loop below never revisits.
-    let reincludeBase: string | undefined = inheritedBase;
-    let ancestor = rootBase;
-    for (const segment of relativeToRoot.split(path.sep).slice(0, -1)) {
-      ancestor = path.join(ancestor, segment);
-      const ancestorLevels = await levelsFor(path.dirname(ancestor));
-      const verdict = verdictOf(ancestor, true, ancestorLevels, reincludeBase);
-      if (verdict === "ignored") {
-        return { ok: false, reason: "ignored by .gitignore" };
-      }
-      if (verdict === "unignored") {
-        reincludeBase = ancestor;
-      }
+    // An ignore file re-includes a directory when it negates a pattern from an
+    // ancestor, and that re-inclusion carries to its contents. Walk the
+    // ancestors first to find the innermost re-included directory per source,
+    // then evaluate the file relative to it for shallower levels.
+    // The workspace folder itself can be the re-included directory (a root rule
+    // excludes `nested/build/`, `nested/.gitignore` says `!build/`, and the
+    // panel is opened on `nested/build`). Starting from the inherited bases
+    // keeps its files, which the walk below never revisits.
+    const walk = await walkAncestors(absPath, inheritedBases);
+    if (walk.ignored !== null) {
+      return {
+        ok: false,
+        reason: ignoreReason(walk.ignored === "git", walk.ignored === "clip"),
+      };
     }
+    const bases = walk.bases;
 
-    if (verdictOf(absPath, false, levels, reincludeBase) === "ignored") {
-      return { ok: false, reason: "ignored by .gitignore" };
+    const gitIgnored =
+      verdictOf(absPath, false, sources.git, bases.git) === "ignored";
+    const clipIgnored =
+      verdictOf(absPath, false, sources.clip, bases.clip) === "ignored";
+    if (gitIgnored || clipIgnored) {
+      return { ok: false, reason: ignoreReason(gitIgnored, clipIgnored) };
     }
 
     return { ok: true, absPath: resolved.absPath };
@@ -652,20 +735,28 @@ async function resolveRealInside(
 async function walk(
   rootDir: string,
   currentDir: string,
-  levels: IgnoreLevel[],
+  levels: IgnoreSources,
+  bases: ReincludeBases,
   results: string[],
-  reincludeBase: string | undefined,
   ignorecase: boolean,
 ): Promise<void> {
-  let levelsForDir = levels;
+  let sources = levels;
 
-  const gitignorePath = path.join(currentDir, ".gitignore");
-  const gitignoreContent = await readIgnoreFile(gitignorePath);
-  if (gitignoreContent !== null) {
-    levelsForDir = [
-      ...levels,
-      makeLevel(currentDir, gitignoreContent, ignorecase),
-    ];
+  const gitContent = await readIgnoreFile(path.join(currentDir, ".gitignore"));
+  const clipContent = await readIgnoreFile(
+    path.join(currentDir, PROTECTION_FILE),
+  );
+  if (gitContent !== null || clipContent !== null) {
+    sources = {
+      git:
+        gitContent === null
+          ? levels.git
+          : [...levels.git, makeLevel(currentDir, gitContent, ignorecase)],
+      clip:
+        clipContent === null
+          ? levels.clip
+          : [...levels.clip, makeLevel(currentDir, clipContent, ignorecase)],
+    };
   }
 
   let entries: import("fs").Dirent[];
@@ -682,14 +773,11 @@ async function walk(
     }
 
     const fullPath = path.join(currentDir, entry.name);
-    const verdict = verdictOf(
-      fullPath,
-      entry.isDirectory(),
-      levelsForDir,
-      reincludeBase,
-    );
+    const isDirectory = entry.isDirectory();
+    const gitVerdict = verdictOf(fullPath, isDirectory, sources.git, bases.git);
+    const clipVerdict = verdictOf(fullPath, isDirectory, sources.clip, bases.clip);
 
-    if (verdict === "ignored") {
+    if (gitVerdict === "ignored" || clipVerdict === "ignored") {
       continue;
     }
 
@@ -698,18 +786,14 @@ async function walk(
       continue;
     }
 
-    if (entry.isDirectory()) {
-      // A directory re-included by a deeper .gitignore re-includes its whole
-      // subtree; shallower levels are then evaluated relative to it.
-      const childBase = verdict === "unignored" ? fullPath : reincludeBase;
-      await walk(
-        rootDir,
-        fullPath,
-        levelsForDir,
-        results,
-        childBase,
-        ignorecase,
-      );
+    if (isDirectory) {
+      // A directory re-included by a deeper ignore file re-includes its whole
+      // subtree, per source; shallower levels are then evaluated against it.
+      const childBases: ReincludeBases = {
+        git: gitVerdict === "unignored" ? fullPath : bases.git,
+        clip: clipVerdict === "unignored" ? fullPath : bases.clip,
+      };
+      await walk(rootDir, fullPath, sources, childBases, results, ignorecase);
     } else if (entry.isFile()) {
       const relFromRoot = toPosixPath(path.relative(rootDir, fullPath));
       results.push(relFromRoot);
