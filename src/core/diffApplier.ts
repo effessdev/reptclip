@@ -114,11 +114,103 @@ const escapeRegExp = (value: string): string =>
 // Filesystem helpers
 // ============================================================================
 
-async function readFileIfExists(absPath: string): Promise<string | undefined> {
+/**
+ * Files this tool is willing to edit in place. Context is capped at 1 MB and a
+ * diff is generated from that context, so anything far above it is either a
+ * mistake or a binary; refusing beats reading hundreds of megabytes into
+ * memory just to fail later.
+ */
+const MAX_EDIT_BYTES = 8 * 1024 * 1024;
+
+/**
+ * Checks what a write to `absPath` would really touch, before any plan is
+ * built and again right before the edit. A path that does not exist is fine
+ * (the diff creates it). Anything else that is not a regular file is refused,
+ * and so is a file with more than one hard link: editing one name would
+ * silently rewrite every other name, including `.git/config`, `.env`, or a
+ * gitignored file reached by a link the path-based guard cannot see.
+ */
+async function assertWritableTarget(
+  absPath: string,
+  label: string,
+): Promise<void> {
+  let info: import("fs").Stats;
+  try {
+    info = await fs.stat(absPath);
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === "ENOENT") {
+      return;
+    }
+    if (code === "ENOTDIR") {
+      throw new Error(
+        `Cannot edit ${label}: a parent path is not a directory. Nothing was applied.`,
+      );
+    }
+    throw new Error(
+      `Cannot edit ${label}: ${(err as Error).message}. Nothing was applied.`,
+    );
+  }
+  if (info.isDirectory()) {
+    throw new Error(
+      `Cannot edit ${label}: it is a directory, not a file. Nothing was applied.`,
+    );
+  }
+  if (!info.isFile()) {
+    throw new Error(
+      `Cannot edit ${label}: it is not a regular file. Nothing was applied.`,
+    );
+  }
+  if (info.nlink > 1) {
+    throw new Error(
+      `Cannot edit ${label}: it is a hard link with ${info.nlink} names. ` +
+        "Editing it would silently change every other name, so remove the link first.",
+    );
+  }
+}
+
+/**
+ * Reads a file a diff wants to edit. Only "there is no such file" (ENOENT)
+ * means "new file": a directory, a locked file, or a permission error must
+ * abort the apply instead of being treated as an absent target and
+ * overwritten with `createFile(overwrite: true)`.
+ *
+ * `enforceEditLimit` is off for undo/redo: a checkpoint must be restorable
+ * even when the file grew past the limit after it was recorded.
+ */
+async function readFileIfExists(
+  absPath: string,
+  enforceEditLimit: boolean = true,
+): Promise<string | undefined> {
+  let stat: import("fs").Stats;
+  try {
+    stat = await fs.stat(absPath);
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === "ENOENT") {
+      return undefined;
+    }
+    throw new Error(
+      `Cannot read ${absPath}: ${(err as Error).message}. Nothing was applied.`,
+    );
+  }
+  if (!stat.isFile()) {
+    throw new Error(
+      `Cannot edit ${absPath}: it is not a regular file. Nothing was applied.`,
+    );
+  }
+  if (enforceEditLimit && stat.size > MAX_EDIT_BYTES) {
+    throw new Error(
+      `Cannot edit ${absPath}: it is ${(stat.size / (1024 * 1024)).toFixed(1)} MB, ` +
+        `over the ${MAX_EDIT_BYTES / (1024 * 1024)} MB limit for applied diffs.`,
+    );
+  }
   try {
     return await fs.readFile(absPath, "utf8");
-  } catch {
-    return undefined;
+  } catch (err) {
+    throw new Error(
+      `Cannot read ${absPath}: ${(err as Error).message}. Nothing was applied.`,
+    );
   }
 }
 
@@ -372,10 +464,11 @@ async function isSameFile(first: string, second: string): Promise<boolean> {
 async function readCurrentContent(
   absPath: string,
   overrides: Map<string, string> | undefined,
+  enforceEditLimit: boolean = true,
 ): Promise<string | undefined> {
   return (
     (await findBufferOverride(overrides, absPath)) ??
-    (await readFileIfExists(absPath))
+    (await readFileIfExists(absPath, enforceEditLimit))
   );
 }
 
@@ -672,9 +765,11 @@ function findMatch(
  * affected files in the editor. Shared by applyDiffs and applySnapshot.
  */
 async function commitPlans(
+  rootDir: string,
   plans: Iterable<FilePlan>,
   assertBuffersCurrent?: () => void,
 ): Promise<{ modified: number; created: number; deleted: number }> {
+  const items = Array.from(plans);
   const edit = new vscode.WorkspaceEdit();
 
   let modified = 0;
@@ -684,7 +779,7 @@ async function commitPlans(
   // Files whose edits land in an in-memory document buffer.
   const touched: vscode.Uri[] = [];
 
-  for (const plan of plans) {
+  for (const plan of items) {
     const uri = vscode.Uri.file(plan.absPath);
 
     if (plan.deleted) {
@@ -709,8 +804,36 @@ async function commitPlans(
     touched.push(uri);
   }
 
-  // Revalidate immediately before applying the edit. Opening documents above
-  // awaited, so buffers may have changed since the earlier validation.
+  // Last line of defence, after every await and dialog. Every target — a
+  // deletion included, because VS Code deletes by path and a parent swapped for
+  // a junction would carry that deletion outside — must still resolve inside
+  // the workspace, outside `.git`, and inside the ignore rules. The embedding
+  // verdict from planning describes the path as it was then: a file swapped for
+  // a link to an ignored one during the dialog would otherwise be written.
+  const isEmbeddable = createEmbeddingGuard(rootDir);
+  for (const plan of items) {
+    const resolved = await resolveFile(rootDir, plan.relPath);
+    if (resolved.realRelPath.split("/").includes(".git")) {
+      throw new Error(
+        `Cannot edit ${plan.relPath}: it now resolves inside .git. Nothing was applied.`,
+      );
+    }
+    const verdict = await isEmbeddable(resolved.realRelPath);
+    if (!verdict.ok) {
+      throw new Error(
+        `Cannot edit ${plan.relPath}: ${verdict.reason ?? "it is ignored"}. Nothing was applied.`,
+      );
+    }
+    // Deleting or moving one name of a hard link leaves the other names intact,
+    // so only a content write needs the writable-target check.
+    if (!plan.deleted) {
+      await assertWritableTarget(plan.absPath, plan.relPath);
+    }
+  }
+
+  // Buffers last: every await above can let an editor change under us, and
+  // VS Code captures document versions when the edit is applied, so a check
+  // made before the loop would not see that change.
   assertBuffersCurrent?.();
 
   const applied = await vscode.workspace.applyEdit(edit);
@@ -811,6 +934,14 @@ async function resolveAndValidatePaths(
   for (const block of blocks) {
     const target = await resolveFile(rootDir, block.file);
     targets.push(target);
+
+    // Deleting or moving one name of a hard link leaves the other names
+    // intact; only operations that rewrite content go through the
+    // writable-target check (the destination of a move is created, and an
+    // existing destination is rejected by the plan itself).
+    if (block.kind === undefined) {
+      await assertWritableTarget(target.absPath, block.file);
+    }
 
     const verdict = await isEmbeddable(stripAdsSuffix(block.file));
 
@@ -970,9 +1101,23 @@ async function applyMoveBlock(
     throw new Error(`Cannot move ${block.file}: the file does not exist.`);
   }
 
-  if (destination.absPath.toLowerCase() === plan.absPath.toLowerCase()) {
+  if (destination.absPath === plan.absPath) {
     throw new Error(
       `Cannot move ${block.file}: source and destination are the same path.`,
+    );
+  }
+
+  // On a case-insensitive volume `foo.ts` and `Foo.ts` are one file, so a
+  // case-only rename cannot be expressed as create+delete. Say that plainly
+  // instead of claiming the paths are identical.
+  if (
+    destination.absPath.toLowerCase() === plan.absPath.toLowerCase() &&
+    (await isSameFile(plan.absPath, destination.absPath))
+  ) {
+    throw new Error(
+      `Cannot move ${block.file} to ${block.destination}: the names differ only ` +
+        "by letter case, and this filesystem treats them as the same file. " +
+        "Rename it in your editor instead.",
     );
   }
 
@@ -1162,6 +1307,7 @@ export async function applyDiffs(
   options.assertBuffersCurrent?.();
 
   const { modified, created, deleted } = await commitPlans(
+    rootDir,
     plans.values(),
     options.assertBuffersCurrent,
   );
@@ -1205,6 +1351,7 @@ export async function applySnapshot(
     const currentContent = await readCurrentContent(
       absPath,
       options.bufferOverrides,
+      false,
     );
 
     const currentExists = currentContent !== undefined;
@@ -1228,6 +1375,11 @@ export async function applySnapshot(
 
       continue;
     }
+
+    // Undo/redo writes through whatever the path is now; a file that became a
+    // hard link since the checkpoint was recorded must not be rewritten
+    // through the other name (that is how `.env` used to be clobbered).
+    await assertWritableTarget(absPath, file.relPath);
 
     plans.push({
       absPath,
@@ -1263,6 +1415,7 @@ export async function applySnapshot(
   options.assertBuffersCurrent?.();
 
   const { modified, created, deleted } = await commitPlans(
+    rootDir,
     plans,
     options.assertBuffersCurrent,
   );
