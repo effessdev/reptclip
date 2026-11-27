@@ -300,7 +300,7 @@ In the sidebar:
 
 Or even below the Explorer so your files, terminal, and ReptClip are visible at the same time! Like this:
 
-<img width="1366" height="1021" alt="image" src="https://github.com/user-attachments/assets/3ecb0904-3c42-4fba-938e-7ad1dfd08aa3" />
+<img width="1366" alt="image" src="https://github.com/user-attachments/assets/3ecb0904-3c42-4fba-938e-7ad1dfd08aa3" />
 
 ### UI Features
 
