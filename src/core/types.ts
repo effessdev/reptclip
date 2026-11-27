@@ -90,7 +90,8 @@ export type HostToWebviewMessage =
       requestId: number;
       attach: boolean[];
       exclude: boolean[];
-    };
+    }
+  | { type: "moreContextProgress"; percent: number };
 
 /** Messages sent from the webview to the extension host. */
 export type WebviewToHostMessage =

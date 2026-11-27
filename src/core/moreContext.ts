@@ -1,7 +1,10 @@
 import * as path from "path";
 import * as fs from "fs/promises";
 import * as vm from "node:vm";
-import { createEmbeddingGuard } from "./gitignoreScanner";
+import {
+  createEmbeddingGuard,
+  collectNonIgnoredFiles,
+} from "./gitignoreScanner";
 import { countFileLines, isUtf8TextFile, readFileSafe } from "./fileGuards";
 import { fencedSection } from "./fence";
 import { tokenize } from "./tokenizer";
@@ -707,6 +710,15 @@ type EmbeddingGuard = ReturnType<typeof createEmbeddingGuard>;
 export const DEFAULT_GREP_TIMEOUT_MS = 15_000;
 
 /**
+ * How large a batch of files' combined size may grow before a search commits
+ * to it, reports progress, and checks the deadline again. Smaller batches
+ * mean progress updates and the "taking longer than expected" prompt land
+ * sooner, at the cost of more `vm.runInNewContext` overhead (~4 ms per batch,
+ * see `searchWithTimeout`) from re-entering the sandbox more often.
+ */
+export const DEFAULT_GREP_BATCH_BYTES = 4 * 1024 * 1024;
+
+/**
  * Runs a synchronous search under a wall-clock bound.
  *
  * grepts matches with `RegExp.test` inside its own loop, and a catastrophic
@@ -723,9 +735,13 @@ function searchWithTimeout(
   pattern: string,
 ): unknown {
   try {
-    return vm.runInNewContext("search(options)", { search, options }, {
-      timeout: timeoutMs,
-    });
+    return vm.runInNewContext(
+      "search(options)",
+      { search, options },
+      {
+        timeout: timeoutMs,
+      },
+    );
   } catch (error) {
     // The timeout error is created in the vm realm, so `instanceof Error` is
     // false here; the code is what identifies it.
@@ -742,84 +758,277 @@ function searchWithTimeout(
 }
 
 /**
- * Runs one grep via grepts. The sync `search()` is deliberate: `searchAsync`
- * spawns a worker pool whose script path is resolved relative to grepts'
- * own module URL, which does not survive esbuild bundling. Safety: grepts
- * lets explicitly passed file paths bypass .gitignore, so every result is
- * re-checked through the embedding guard before any line is embedded, and
- * NUL-containing (binary) matches are dropped.
+ * Resolves grep's validated targets (files and/or directories) into a flat,
+ * de-duplicated list of concrete files with their sizes, so the search can
+ * be split into batches before anything is searched. A directory is expanded
+ * through the same non-ignored file list used elsewhere, filtered to that
+ * subtree — this is how grepts' own `respectGitignore` walk gets replicated
+ * here. An explicit file bypasses that filter exactly as it does today; the
+ * embedding guard still runs on every result either way.
+ */
+async function collectSearchFiles(
+  rootDir: string,
+  absPaths: string[],
+  getNonIgnoredFiles: () => Promise<string[]>,
+): Promise<{ absPath: string; size: number }[]> {
+  const out: { absPath: string; size: number }[] = [];
+  const seen = new Set<string>();
+
+  for (const absPath of absPaths) {
+    try {
+      const stat = await fs.stat(absPath);
+      if (stat.isFile()) {
+        if (!seen.has(absPath)) {
+          seen.add(absPath);
+          out.push({ absPath, size: stat.size });
+        }
+        continue;
+      }
+      if (!stat.isDirectory()) {
+        continue;
+      }
+      const relPrefix = path
+        .relative(rootDir, absPath)
+        .split(/[\\/]+/)
+        .join("/");
+      const nonIgnored = await getNonIgnoredFiles();
+      for (const relPath of nonIgnored) {
+        if (
+          relPrefix !== "" &&
+          relPath !== relPrefix &&
+          !relPath.startsWith(`${relPrefix}/`)
+        ) {
+          continue;
+        }
+        const fileAbsPath = path.join(rootDir, relPath);
+        if (seen.has(fileAbsPath)) {
+          continue;
+        }
+        try {
+          const fileStat = await fs.stat(fileAbsPath);
+          if (fileStat.isFile()) {
+            seen.add(fileAbsPath);
+            out.push({ absPath: fileAbsPath, size: fileStat.size });
+          }
+        } catch {
+          // raced with a delete between the scan and this stat; skip it
+        }
+      }
+    } catch {
+      continue; // vanished since validation; the search just skips it
+    }
+  }
+  return out;
+}
+
+/**
+ * Packs files into batches whose combined size stays near `targetBytes`,
+ * preserving order and always keeping at least one file per batch (a single
+ * file larger than the target still gets its own batch rather than being
+ * split).
+ */
+function batchBySize<T extends { size: number }>(
+  items: T[],
+  targetBytes: number,
+): T[][] {
+  const batches: T[][] = [];
+  let current: T[] = [];
+  let currentSize = 0;
+  for (const item of items) {
+    if (current.length > 0 && currentSize + item.size > targetBytes) {
+      batches.push(current);
+      current = [];
+      currentSize = 0;
+    }
+    current.push(item);
+    currentSize += item.size;
+  }
+  if (current.length > 0) {
+    batches.push(current);
+  }
+  return batches;
+}
+
+interface GrepRunOptions {
+  /**
+   * Overall wall-clock bound for this search, in milliseconds. Unlike the
+   * old single `vm.runInNewContext` call, this spans every batch; each batch
+   * only gets whatever is left of it.
+   */
+  timeoutMs: number;
+  /** Target combined file size per batch, in bytes. */
+  batchBytes: number;
+  /** Reports 0-100 progress after each batch finishes. */
+  onProgress?: (percent: number) => void;
+  /**
+   * Asked once the deadline is reached, whether that's before a batch starts
+   * or because a batch itself timed out. Returning true doubles the deadline
+   * and resumes the very batch that was about to run or just timed out —
+   * nothing already completed is redone. Returning false (or omitting the
+   * callback) fails the search exactly as it always has.
+   */
+  confirmContinue?: (info: {
+    line: string;
+    elapsedMs: number;
+  }) => Promise<boolean>;
+}
+
+/**
+ * Runs one grep via grepts, across as many batches as the target files need.
+ * The sync `search()` is deliberate: `searchAsync` spawns a worker pool whose
+ * script path is resolved relative to grepts' own module URL, which does not
+ * survive esbuild bundling. Safety: grepts lets explicitly passed file paths
+ * bypass .gitignore, so every result is re-checked through the embedding
+ * guard before any line is embedded, and NUL-containing (binary) matches are
+ * dropped.
  */
 async function runGrep(
   rootDir: string,
   request: GrepRequest,
   absPaths: string[],
   guard: EmbeddingGuard,
-  timeoutMs: number,
+  getNonIgnoredFiles: () => Promise<string[]>,
+  line: string,
+  runOptions: GrepRunOptions,
 ): Promise<{ output: string; resultCount: number }> {
   const grepts: GreptsModule = await import("grepts");
-  const options = grepts.searchOptionsSchema.parse({
-    ...request,
-    paths: absPaths,
-    respectGitignore: true,
-    color: false,
-    quiet: false,
-  });
+
   let regex: RegExp;
   try {
-    regex = grepts.buildRegex(options);
+    regex = grepts.buildRegex(
+      grepts.searchOptionsSchema.parse({
+        ...request,
+        paths: absPaths,
+        respectGitignore: true,
+        color: false,
+        quiet: false,
+      }),
+    );
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err);
     throw new Error(
       `Invalid grep pattern ${JSON.stringify(request.pattern)}: ${reason}`,
     );
   }
-  const results = searchWithTimeout(
-    grepts.search as (searchOptions: unknown) => unknown,
-    options,
-    timeoutMs,
-    request.pattern,
-  ) as ReturnType<typeof grepts.search>;
+
+  const files = await collectSearchFiles(rootDir, absPaths, getNonIgnoredFiles);
+  if (files.length === 0) {
+    return { output: "(no matches)", resultCount: 0 };
+  }
+  const batches = batchBySize(files, runOptions.batchBytes);
+
   const lines: string[] = [];
   let resultCount = 0;
   // grepts decodes files as UTF-8 without validation, so a legacy-encoded file
   // would come back as mojibake even though `cat` skips it. Apply the same
   // text check the context pipeline uses, once per matched file.
   const textFiles = new Map<string, boolean>();
-  for (const result of results) {
-    const relPath = path
-      .relative(rootDir, result.filePath)
-      .split(/[\\/]+/)
-      .join("/");
-    const verdict = await guard(relPath);
-    if (!verdict.ok) {
-      continue;
+
+  const startTime = Date.now();
+  let totalTimeoutMs = runOptions.timeoutMs;
+
+  // true doubles the deadline so the caller can retry; false leaves the
+  // caller to fail the search as it always has.
+  const askToContinue = async (): Promise<boolean> => {
+    if (!runOptions.confirmContinue) {
+      return false;
     }
-    let isText = textFiles.get(result.filePath);
-    if (isText === undefined) {
-      isText = await isUtf8TextFile(result.filePath);
-      textFiles.set(result.filePath, isText);
+    const proceed = await runOptions.confirmContinue({
+      line,
+      elapsedMs: Date.now() - startTime,
+    });
+    if (proceed) {
+      totalTimeoutMs *= 2;
     }
-    if (!isText) {
-      continue;
-    }
-    if (result.matches.some((match) => match.line.includes("\0"))) {
-      continue;
-    }
-    const formatted = grepts.formatResult(
-      { ...result, filePath: relPath },
-      options,
-      regex,
-      true,
+    return proceed;
+  };
+
+  const giveUp = (): never => {
+    throw new Error(
+      `pattern ${JSON.stringify(request.pattern)} ran for more than ${totalTimeoutMs} ms ` +
+        "and was stopped; narrow the paths, simplify the pattern, or pass -F for a literal search",
     );
-    if (formatted) {
-      lines.push(formatted);
-      resultCount += options.count
-        ? result.matchCount
-        : options.filesWithMatches || options.filesWithoutMatch
-          ? 1
-          : result.matchCount;
+  };
+
+  let batchIndex = 0;
+  while (batchIndex < batches.length) {
+    const remainingMs = startTime + totalTimeoutMs - Date.now();
+    if (remainingMs <= 0) {
+      if (await askToContinue()) {
+        continue; // deadline just moved; re-check it from the top
+      }
+      giveUp();
     }
+
+    const batch = batches[batchIndex];
+    const batchOptions = grepts.searchOptionsSchema.parse({
+      ...request,
+      paths: batch.map((file) => file.absPath),
+      respectGitignore: true,
+      color: false,
+      quiet: false,
+    });
+
+    let batchResults: ReturnType<typeof grepts.search> = [];
+    try {
+      batchResults = searchWithTimeout(
+        grepts.search as (searchOptions: unknown) => unknown,
+        batchOptions,
+        remainingMs,
+        request.pattern,
+      ) as ReturnType<typeof grepts.search>;
+    } catch (err) {
+      const timedOut =
+        err instanceof Error && /ran for more than/.test(err.message);
+      if (!timedOut) {
+        throw err;
+      }
+      if (await askToContinue()) {
+        continue; // retry this same batch now that the deadline moved
+      }
+      giveUp();
+    }
+
+    for (const result of batchResults) {
+      const relPath = path
+        .relative(rootDir, result.filePath)
+        .split(/[\\/]+/)
+        .join("/");
+      const verdict = await guard(relPath);
+      if (!verdict.ok) {
+        continue;
+      }
+      let isText = textFiles.get(result.filePath);
+      if (isText === undefined) {
+        isText = await isUtf8TextFile(result.filePath);
+        textFiles.set(result.filePath, isText);
+      }
+      if (!isText) {
+        continue;
+      }
+      if (result.matches.some((match) => match.line.includes("\0"))) {
+        continue;
+      }
+      const formatted = grepts.formatResult(
+        { ...result, filePath: relPath },
+        batchOptions,
+        regex,
+        true,
+      );
+      if (formatted) {
+        lines.push(formatted);
+        resultCount += batchOptions.count
+          ? result.matchCount
+          : batchOptions.filesWithMatches || batchOptions.filesWithoutMatch
+            ? 1
+            : result.matchCount;
+      }
+    }
+
+    batchIndex += 1;
+    runOptions.onProgress?.(Math.round((batchIndex / batches.length) * 100));
   }
+
   return {
     output: lines.length > 0 ? lines.join("\n") : "(no matches)",
     resultCount,
@@ -901,8 +1110,23 @@ async function renderFileCommand(
 // -----------------------------------------------------------------------------
 
 export interface MoreContextOptions {
-  /** Wall-clock bound for one grep, in milliseconds. */
+  /** Overall wall-clock bound for one grep search, in milliseconds. */
   grepTimeoutMs?: number;
+  /** Target combined file size per grep batch, in bytes. */
+  grepBatchBytes?: number;
+  /** Reports 0-100 progress for whichever grep search is currently running. */
+  onSearchProgress?: (percent: number) => void;
+  /**
+   * Asked when a search's deadline is reached, whether that's before a batch
+   * starts or because a batch timed out mid-run. Returning true doubles the
+   * deadline and resumes from the batch that was running, keeping every
+   * earlier batch's results; returning false fails the search as it always
+   * has.
+   */
+  confirmContinueSearch?: (info: {
+    line: string;
+    elapsedMs: number;
+  }) => Promise<boolean>;
 }
 
 export async function moreContext(
@@ -923,6 +1147,12 @@ export async function moreContext(
   let searchCount = 0;
   let searchResultCount = 0;
 
+  // Computed at most once per call, since several grep commands can search
+  // overlapping directories.
+  let nonIgnoredFiles: Promise<string[]> | undefined;
+  const getNonIgnoredFiles = () =>
+    (nonIgnoredFiles ??= collectNonIgnoredFiles(rootDir));
+
   for (const command of validated) {
     if (command.kind !== "grep") {
       sections.push(await renderFileCommand(command));
@@ -935,7 +1165,14 @@ export async function moreContext(
       command.request,
       command.absPaths,
       guard,
-      options.grepTimeoutMs ?? DEFAULT_GREP_TIMEOUT_MS,
+      getNonIgnoredFiles,
+      command.line,
+      {
+        timeoutMs: options.grepTimeoutMs ?? DEFAULT_GREP_TIMEOUT_MS,
+        batchBytes: options.grepBatchBytes ?? DEFAULT_GREP_BATCH_BYTES,
+        onProgress: options.onSearchProgress,
+        confirmContinue: options.confirmContinueSearch,
+      },
     );
     sections.push(renderSection(command.line, result.output));
     searchCount++;

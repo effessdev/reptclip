@@ -611,6 +611,11 @@
       return;
     }
 
+    if (message.type === "moreContextProgress") {
+      setStatus(`Searching… ${message.percent}%`);
+      return;
+    }
+
     if (message.type === "runResult") {
       if (message.ok) {
         const destinationStatus =

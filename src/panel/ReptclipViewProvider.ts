@@ -290,7 +290,19 @@ export class ReptclipViewProvider implements vscode.WebviewViewProvider {
                 );
               }
 
-              const result = await moreContext(rootDir, clipboardText);
+              const result = await moreContext(rootDir, clipboardText, {
+                onSearchProgress: (percent) => {
+                  post({ type: "moreContextProgress", percent });
+                },
+                confirmContinueSearch: async ({ line }) => {
+                  const choice = await vscode.window.showWarningMessage(
+                    `Searching is taking longer than expected (${line}). Continue anyway?`,
+                    { modal: true },
+                    "Continue",
+                  );
+                  return choice === "Continue";
+                },
+              });
 
               if (message.state.clipboard) {
                 await copyToClipboard(result.markdown);
@@ -394,7 +406,11 @@ export class ReptclipViewProvider implements vscode.WebviewViewProvider {
                   rootDir,
                   fingerprint,
                 );
-                this.pushCheckpoint(this.undoStacks, rootDir, result.checkpoint);
+                this.pushCheckpoint(
+                  this.undoStacks,
+                  rootDir,
+                  result.checkpoint,
+                );
                 this.redoStacks.set(rootDir, []);
                 return { kind: "applied" as const, result };
               });
