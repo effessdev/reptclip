@@ -22,6 +22,7 @@ import {
   Checkpoint,
 } from "../core/diffApplier";
 import { writeOutputFile } from "../core/outputWriter";
+import { withLock } from "../core/applyQueue";
 import { collectCandidates, filterCandidates } from "../core/completions";
 import { collectNonIgnoredFiles } from "../core/gitignoreScanner";
 import { tokenize } from "../core/tokenizer";
@@ -329,79 +330,94 @@ export class ReptclipViewProvider implements vscode.WebviewViewProvider {
               return;
             }
 
+            // The whole transaction — the "already applied" check, the buffer
+            // snapshot, the edit, the fingerprint and the checkpoint — runs
+            // inside the lock. Otherwise two clicks both pass the fingerprint
+            // check and snapshot the same pre-apply buffers, and the second
+            // write silently drops the first edit.
+            // Start the clipboard read now, before queueing: a click must apply
+            // what was on the clipboard when it was made, not what a later
+            // dialog left behind. Queueing happens in the same tick, so a click
+            // that arrived first still runs first.
+            const clipboardTextPromise = readClipboard();
+            clipboardTextPromise.catch(() => undefined);
             try {
-              const clipboardText = await readClipboard();
-              if (!clipboardText.trim()) {
-                throw new Error(
-                  "Clipboard is empty. Please copy a Search/Replace diff first.",
-                );
-              }
-
-              const fingerprint = fingerprintDiff(clipboardText);
-              // The "already applied" guard is persisted per project (only the
-              // most recent diff), so it still holds after a VS Code restart.
-              // When it trips we don't silently skip: the user can confirm to
-              // re-apply the remembered diff anyway.
-              if (
-                loadLastAppliedFingerprint(this.context, rootDir) ===
-                fingerprint
-              ) {
-                const choice = await vscode.window.showWarningMessage(
-                  "This is the same diff as the last one applied to this project. Applying it again may duplicate changes. Re-apply anyway?",
-                  { modal: true },
-                  "Re-apply",
-                );
-                if (choice !== "Re-apply") {
-                  post({
-                    type: "applyResult",
-                    ok: true,
-                    modified: 0,
-                    created: 0,
-                    deleted: 0,
-                    fuzzy: 0,
-                    alreadyApplied: true,
-                  });
-                  return;
+              const outcome = await withLock(rootDir, async () => {
+                const clipboardText = await clipboardTextPromise;
+                if (!clipboardText.trim()) {
+                  throw new Error(
+                    "Clipboard is empty. Please copy a Search/Replace diff first.",
+                  );
                 }
-              }
+                const fingerprint = fingerprintDiff(clipboardText);
+                // The "already applied" guard is persisted per project (only
+                // the most recent diff), so it still holds after a restart.
+                // When it trips we don't silently skip: the user can confirm to
+                // re-apply the remembered diff anyway.
+                if (
+                  loadLastAppliedFingerprint(this.context, rootDir) ===
+                  fingerprint
+                ) {
+                  const choice = await vscode.window.showWarningMessage(
+                    "This is the same diff as the last one applied to this project. Applying it again may duplicate changes. Re-apply anyway?",
+                    { modal: true },
+                    "Re-apply",
+                  );
+                  if (choice !== "Re-apply") {
+                    return { kind: "already-applied" as const };
+                  }
+                }
 
-              const captured = this.captureBuffers();
-              const result = await applyDiffs(rootDir, clipboardText, {
-                bufferOverrides: captured.buffers,
-                assertBuffersCurrent: captured.assertCurrent,
-                confirmSuspiciousReplace: async (files) => {
-                  const choice = await vscode.window.showWarningMessage(
-                    `The REPLACE block for ${files.join(", ")} contains a "=======" line. That usually means a SEARCH separator was swallowed and more code will change than intended. Apply anyway?`,
-                    { modal: true },
-                    "Apply anyway",
-                  );
-                  return choice === "Apply anyway";
-                },
-                confirmGitignoreEdits: async (paths) => {
-                  const choice = await vscode.window.showWarningMessage(
-                    `This diff modifies an ignore file (${paths.join(", ")}). Changing it can un-ignore sensitive files, such as .env, so they would start being read and written by ReptClip. Apply anyway?`,
-                    { modal: true },
-                    "Apply anyway",
-                  );
-                  return choice === "Apply anyway";
-                },
+                const captured = this.captureBuffers();
+                const result = await applyDiffs(rootDir, clipboardText, {
+                  bufferOverrides: captured.buffers,
+                  assertBuffersCurrent: captured.assertCurrent,
+                  confirmSuspiciousReplace: async (files) => {
+                    const choice = await vscode.window.showWarningMessage(
+                      `The REPLACE block for ${files.join(", ")} contains a "=======" line. That usually means a SEARCH separator was swallowed and more code will change than intended. Apply anyway?`,
+                      { modal: true },
+                      "Apply anyway",
+                    );
+                    return choice === "Apply anyway";
+                  },
+                  confirmGitignoreEdits: async (paths) => {
+                    const choice = await vscode.window.showWarningMessage(
+                      `This diff modifies an ignore file (${paths.join(", ")}). Changing it can un-ignore sensitive files, such as .env, so they would start being read and written by ReptClip. Apply anyway?`,
+                      { modal: true },
+                      "Apply anyway",
+                    );
+                    return choice === "Apply anyway";
+                  },
+                });
+                await saveLastAppliedFingerprint(
+                  this.context,
+                  rootDir,
+                  fingerprint,
+                );
+                this.pushCheckpoint(this.undoStacks, rootDir, result.checkpoint);
+                this.redoStacks.set(rootDir, []);
+                return { kind: "applied" as const, result };
               });
-              await saveLastAppliedFingerprint(
-                this.context,
-                rootDir,
-                fingerprint,
-              );
 
-              this.pushCheckpoint(this.undoStacks, rootDir, result.checkpoint);
-              this.redoStacks.set(rootDir, []);
-
+              if (outcome.kind === "already-applied") {
+                post({
+                  type: "applyResult",
+                  ok: true,
+                  modified: 0,
+                  created: 0,
+                  deleted: 0,
+                  fuzzy: 0,
+                  alreadyApplied: true,
+                });
+                return;
+              }
               post({
                 type: "applyResult",
                 ok: true,
-                modified: result.modified,
-                created: result.created,
-                deleted: result.deleted,
-                fuzzy: result.fuzzy,
+                modified: outcome.result.modified,
+                created: outcome.result.created,
+                deleted: outcome.result.deleted,
+                fuzzy: outcome.result.fuzzy,
               });
               this.sendUndoRedoState(rootDir, post);
             } catch (err) {
@@ -421,72 +437,83 @@ export class ReptclipViewProvider implements vscode.WebviewViewProvider {
               return;
             }
 
-            const stack = this.undoStacks.get(rootDir);
-            const checkpoint = stack?.pop();
-            if (!checkpoint) {
-              post({
-                type: "undoResult",
-                ok: false,
-                error: "Nothing to undo.",
-              });
-              return;
-            }
-
+            // Pop, disk check, snapshot, apply and the redo push all happen
+            // inside the lock, so a queued apply cannot change the files
+            // between the check and the restore.
             try {
-              // Check for disk changes before proceeding
-              const diskChangedFiles: string[] = [];
-              for (const file of checkpoint.files) {
-                const absPath = path.resolve(rootDir, file.relPath);
-                // For undo, we expect to find the "after" state on disk
-                const hasChanged = await this.hasFileChangedOnDisk(
-                  absPath,
-                  file.after,
-                );
-                if (hasChanged) {
-                  diskChangedFiles.push(file.relPath);
+              const outcome = await withLock(rootDir, async () => {
+                const stack = this.undoStacks.get(rootDir);
+                const checkpoint = stack?.pop();
+                if (!stack || !checkpoint) {
+                  return { kind: "empty" as const };
                 }
-              }
+                try {
+                  // Check for disk changes before proceeding
+                  const diskChangedFiles: string[] = [];
+                  for (const file of checkpoint.files) {
+                    const absPath = path.resolve(rootDir, file.relPath);
+                    // For undo, we expect to find the "after" state on disk
+                    const hasChanged = await this.hasFileChangedOnDisk(
+                      absPath,
+                      file.after,
+                    );
+                    if (hasChanged) {
+                      diskChangedFiles.push(file.relPath);
+                    }
+                  }
 
-              if (diskChangedFiles.length > 0) {
-                const choice = await vscode.window.showWarningMessage(
-                  `${diskChangedFiles.join(", ")} changed on disk since this diff was applied. Undo will overwrite those changes. Continue?`,
-                  { modal: true },
-                  "Continue",
-                );
-                if (choice !== "Continue") {
-                  stack?.push(checkpoint); // put it back
-                  post({
-                    type: "undoResult",
-                    ok: false,
-                    error: "Undo cancelled: files changed on disk.",
-                  });
-                  return;
+                  if (diskChangedFiles.length > 0) {
+                    const choice = await vscode.window.showWarningMessage(
+                      `${diskChangedFiles.join(", ")} changed on disk since this diff was applied. Undo will overwrite those changes. Continue?`,
+                      { modal: true },
+                      "Continue",
+                    );
+                    if (choice !== "Continue") {
+                      stack.push(checkpoint); // put it back
+                      return {
+                        kind: "cancelled" as const,
+                        error: "Undo cancelled: files changed on disk.",
+                      };
+                    }
+                  }
+
+                  const captured = this.captureBuffers();
+                  const summary = await applySnapshot(
+                    rootDir,
+                    checkpoint.files,
+                    "undo",
+                    {
+                      bufferOverrides: captured.buffers,
+                      assertBuffersCurrent: captured.assertCurrent,
+                      confirmConflict: (paths) =>
+                        this.confirmDiscard(paths, "undo"),
+                    },
+                  );
+                  this.pushCheckpoint(this.redoStacks, rootDir, checkpoint);
+                  return { kind: "ok" as const, summary };
+                } catch (err) {
+                  stack.push(checkpoint); // the undo didn't take, keep it available
+                  throw err;
                 }
-              }
-
-              const captured = this.captureBuffers();
-              const summary = await applySnapshot(
-                rootDir,
-                checkpoint.files,
-                "undo",
-                {
-                  bufferOverrides: captured.buffers,
-                  assertBuffersCurrent: captured.assertCurrent,
-                  confirmConflict: (paths) =>
-                    this.confirmDiscard(paths, "undo"),
-                },
-              );
-              this.pushCheckpoint(this.redoStacks, rootDir, checkpoint);
-              post({
-                type: "undoResult",
-                ok: true,
-                modified: summary.modified,
-                created: summary.created,
-                deleted: summary.deleted,
               });
-              this.sendUndoRedoState(rootDir, post);
+
+              if (outcome.kind === "ok") {
+                post({
+                  type: "undoResult",
+                  ok: true,
+                  modified: outcome.summary.modified,
+                  created: outcome.summary.created,
+                  deleted: outcome.summary.deleted,
+                });
+                this.sendUndoRedoState(rootDir, post);
+              } else {
+                post({
+                  type: "undoResult",
+                  ok: false,
+                  error: outcome.error ?? "Nothing to undo.",
+                });
+              }
             } catch (err) {
-              stack?.push(checkpoint); // the undo didn't take, keep it available
               const message_ = err instanceof Error ? err.message : String(err);
               post({ type: "undoResult", ok: false, error: message_ });
             }
@@ -503,72 +530,82 @@ export class ReptclipViewProvider implements vscode.WebviewViewProvider {
               return;
             }
 
-            const stack = this.redoStacks.get(rootDir);
-            const checkpoint = stack?.pop();
-            if (!checkpoint) {
-              post({
-                type: "redoResult",
-                ok: false,
-                error: "Nothing to redo.",
-              });
-              return;
-            }
-
+            // Same transaction boundary as undo: nothing leaves the stack or
+            // touches the disk before the lock is held.
             try {
-              // Check for disk changes before proceeding
-              const diskChangedFiles: string[] = [];
-              for (const file of checkpoint.files) {
-                const absPath = path.resolve(rootDir, file.relPath);
-                // For redo, we expect to find the "before" state on disk
-                const hasChanged = await this.hasFileChangedOnDisk(
-                  absPath,
-                  file.before,
-                );
-                if (hasChanged) {
-                  diskChangedFiles.push(file.relPath);
+              const outcome = await withLock(rootDir, async () => {
+                const stack = this.redoStacks.get(rootDir);
+                const checkpoint = stack?.pop();
+                if (!stack || !checkpoint) {
+                  return { kind: "empty" as const };
                 }
-              }
+                try {
+                  // Check for disk changes before proceeding
+                  const diskChangedFiles: string[] = [];
+                  for (const file of checkpoint.files) {
+                    const absPath = path.resolve(rootDir, file.relPath);
+                    // For redo, we expect to find the "before" state on disk
+                    const hasChanged = await this.hasFileChangedOnDisk(
+                      absPath,
+                      file.before,
+                    );
+                    if (hasChanged) {
+                      diskChangedFiles.push(file.relPath);
+                    }
+                  }
 
-              if (diskChangedFiles.length > 0) {
-                const choice = await vscode.window.showWarningMessage(
-                  `${diskChangedFiles.join(", ")} changed on disk since this diff was applied. Redo will overwrite those changes. Continue?`,
-                  { modal: true },
-                  "Continue",
-                );
-                if (choice !== "Continue") {
-                  stack?.push(checkpoint); // put it back
-                  post({
-                    type: "redoResult",
-                    ok: false,
-                    error: "Redo cancelled: files changed on disk.",
-                  });
-                  return;
+                  if (diskChangedFiles.length > 0) {
+                    const choice = await vscode.window.showWarningMessage(
+                      `${diskChangedFiles.join(", ")} changed on disk since this diff was applied. Redo will overwrite those changes. Continue?`,
+                      { modal: true },
+                      "Continue",
+                    );
+                    if (choice !== "Continue") {
+                      stack.push(checkpoint); // put it back
+                      return {
+                        kind: "cancelled" as const,
+                        error: "Redo cancelled: files changed on disk.",
+                      };
+                    }
+                  }
+
+                  const captured = this.captureBuffers();
+                  const summary = await applySnapshot(
+                    rootDir,
+                    checkpoint.files,
+                    "redo",
+                    {
+                      bufferOverrides: captured.buffers,
+                      assertBuffersCurrent: captured.assertCurrent,
+                      confirmConflict: (paths) =>
+                        this.confirmDiscard(paths, "redo"),
+                    },
+                  );
+                  this.pushCheckpoint(this.undoStacks, rootDir, checkpoint);
+                  return { kind: "ok" as const, summary };
+                } catch (err) {
+                  stack.push(checkpoint); // the redo didn't take, keep it available
+                  throw err;
                 }
-              }
-
-              const captured = this.captureBuffers();
-              const summary = await applySnapshot(
-                rootDir,
-                checkpoint.files,
-                "redo",
-                {
-                  bufferOverrides: captured.buffers,
-                  assertBuffersCurrent: captured.assertCurrent,
-                  confirmConflict: (paths) =>
-                    this.confirmDiscard(paths, "redo"),
-                },
-              );
-              this.pushCheckpoint(this.undoStacks, rootDir, checkpoint);
-              post({
-                type: "redoResult",
-                ok: true,
-                modified: summary.modified,
-                created: summary.created,
-                deleted: summary.deleted,
               });
-              this.sendUndoRedoState(rootDir, post);
+
+              if (outcome.kind === "ok") {
+                post({
+                  type: "redoResult",
+                  ok: true,
+                  modified: outcome.summary.modified,
+                  created: outcome.summary.created,
+                  deleted: outcome.summary.deleted,
+                });
+                this.sendUndoRedoState(rootDir, post);
+              } else {
+                post({
+                  type: "redoResult",
+                  ok: false,
+                  error: outcome.error ?? "Nothing to redo.",
+                });
+              }
             } catch (err) {
-              stack?.push(checkpoint); // the redo didn't take, keep it available
               const message_ = err instanceof Error ? err.message : String(err);
               post({ type: "redoResult", ok: false, error: message_ });
             }
@@ -692,6 +729,12 @@ export class ReptclipViewProvider implements vscode.WebviewViewProvider {
    * active editor, falling back to the first open workspace folder.
    */
   private getRootDir(): string | undefined {
+    // The workspace path as the user opened it: it addresses the files and it
+    // keys the saved state, the undo history and the buffer lookup. Tying
+    // those to the resolved path would move file operations and storage keys
+    // to a different spelling (and lose the saved state for every folder with
+    // an uppercase letter). Identity — a junction, a symlinked parent, another
+    // casing — is resolved inside the lock, where that is all it is used for.
     const activeUri = vscode.window.activeTextEditor?.document.uri;
     if (activeUri) {
       const folder = vscode.workspace.getWorkspaceFolder(activeUri);
