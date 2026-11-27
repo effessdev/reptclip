@@ -13,11 +13,11 @@ https://github.com/user-attachments/assets/7511352d-5db7-4e2f-8182-970405924406
 
 Installing the extension adds a **ReptClip** tab to the bottom panel in VS Code. This is where everything happens:
 
-<img width="1917" alt="ReptClip" src="https://github.com/user-attachments/assets/c12854f6-9928-483c-a95f-35e20cfb83e6" />
+<img width="1921" alt="image" src="https://github.com/user-attachments/assets/0e12f52f-8409-4ce9-86ef-c9b70ef72e24" />
 
 Zoomed in:
 
-<img width="1787" alt="ReptClip zoomed in" src="https://github.com/user-attachments/assets/45770704-d55a-4e06-8fb8-6673bab8dd5b" />
+<img width="1791" alt="image" src="https://github.com/user-attachments/assets/880aea73-81ad-4cca-98e7-7687f6c307de" />
 
 You can move it anywhere you want (like the sidebar), and the ReptClip UI will adapt!
 
@@ -292,15 +292,15 @@ The space between the **Apply Diffs** button and the undo button is used to disp
 
 It works wherever you place it. For example, in the bottom panel:
 
-<img width="1356" alt="ReptClip in the bottom panel" src="https://github.com/user-attachments/assets/b3d5f2e4-b3db-45be-abad-31b1d349dec8" />
+<img width="1360" alt="image" src="https://github.com/user-attachments/assets/67ec75a1-a828-4532-b4eb-7bfc36948b4d" />
 
 In the sidebar:
 
-<img width="1360" alt="ReptClip in the sidebar" src="https://github.com/user-attachments/assets/4de6a707-cc93-4077-9084-9d1246379015" />
+<img width="1364" alt="image" src="https://github.com/user-attachments/assets/2fbe6701-1c5d-41cc-9b9f-ca69a82e24b4" />
 
 Or even below the Explorer so your files, terminal, and ReptClip are visible at the same time! Like this:
 
-<img width="1362" alt="ReptClip below the explorer" src="https://github.com/user-attachments/assets/902d9b9d-0b5f-4a2b-8ee7-6f9777de8edd" />
+<img width="1366" height="1021" alt="image" src="https://github.com/user-attachments/assets/3ecb0904-3c42-4fba-938e-7ad1dfd08aa3" />
 
 ### UI Features
 
