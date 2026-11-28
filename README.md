@@ -5,7 +5,7 @@
 
 Paste your project as clean Markdown context into any free Chatbot, and apply the generated diffs in one click!
 
-Watch the video demo below to see it in action 🔥
+Watch the video demo below to see it in action 🔥 (please watch it in fullscreen)
 
 https://github.com/user-attachments/assets/7511352d-5db7-4e2f-8182-970405924406
 
@@ -55,14 +55,15 @@ You can copy that block and click the "More Context" button to copy the output t
 - **Hide labels:** To save screen space once you memorize the layout.
 - **UI state remembered per project:** You don't have to re-enter them every time, and they won't be mixed up with other projects.
 - **Context customization:** Each section in the context can be easily toggled on/off using checkboxes.
-- **Zero dependencies:** ReptClip doesn't need Git initialized (a `.git` folder), or Git installed in your system.
+- **Zero dependencies:** ReptClip doesn't require Git to be initialized (a .git folder), nor does it need Git, grep, or anything else installed on your system.
+- **Project-specific ignores:** Add a `.reptclipignore` file (same syntax as `.gitignore`) to exclude extra files from context and edits, on top of whatever git already ignores.
 - **And more!** Continue reading...
 
 ### Why you can trust it
 
-**ReptClip only touches files its ignore sources do not exclude.** Anything your `.gitignore` files (at any depth) exclude is completely off-limits, for reading, searching, writing, creating, deleting, whatever. `.git` folders are always off-limits too. If something ever goes wrong anyway, the change is an ordinary file edit you can revert.
+**ReptClip can only touch files tracked by Git.** Anything your `.gitignore` files (at any depth) exclude is completely off-limits, for reading, searching, writing, creating, deleting, whatever. A `.reptclipignore` file (same syntax, works the same way) lets you exclude additional files on top of that, without touching your `.gitignore` or git config. `.git` folders are always off-limits too. If something ever goes wrong anyway, the change is an ordinary file edit you can revert.
 
-If the AI attempts to touch a `.gitignore` file, ReptClip for confirmation first, since that can un-ignore something that was previously protected.
+If the AI attempts to touch a `.gitignore` or `.reptclipignore` file, ReptClip asks for confirmation first, since that can un-ignore something that was previously protected.
 
 And that's just the beginning. Continue reading to discover everything ReptClip has to offer!
 
@@ -137,11 +138,13 @@ This will attach `AGENTS.md` and all Python files, but exclude `src/secret.py` a
 
 - **Only files not excluded by the supported ignore sources are ever considered**, using layered, per-directory `.gitignore` parsing (via the `ignore` package) plus the repository's `$GIT_DIR/info/exclude` (and a linked worktree's common dir), rather than shelling out to git. A `.reptclipignore` file at any depth adds exclusions on top of that, with the same syntax and anchoring; it can narrow what is sent, and it can never re-include a file git ignores. Rules are inherited from the repository root even when the panel is opened on a subdirectory, `core.ignorecase` is honoured the same way git does, and a workspace folder that an ancestor rule excludes yields no files at all. Two git sources are **not** read: `core.excludesFile` and `include.path` — a file ignored only through one of those is still considered. This isn't just a filter on one feature's candidate list, it's enforced at the single chokepoint every embedded file read passes through, so no feature and no hand-written path list can bypass it.
 
-- **`.gitignore` is a noise filter, not a secret filter.** A `.env` or key file that is not listed there is embedded verbatim and ends up in the chatbot and on the clipboard. Keep secrets ignored, or name them in **Files to exclude**. Opening the panel on a folder that git itself ignores gives an empty file list, because git would not track files there either.
+- **`.gitignore` (or `.reptclipignore`) is a noise filter, not a secret filter.** A `.env` or key file that is not listed there is embedded verbatim and ends up in the chatbot and on the clipboard. Keep secrets ignored, or name them in **Files to exclude**. Opening the panel on a folder that git itself ignores gives an empty file list, because git would not track files there either.
 
 - **Oversized, binary, and non-UTF-8 files are skipped automatically**, replaced by a descriptive placeholder in the output (limit: 1 MB; binaries detected via NUL-byte sniffing, legacy encodings rejected instead of pasted as `�`), they still appear in the project structure listing without a line count, since the same limit, binary and encoding checks decide whether one can be shown.
 
 - **There is no second implementation for "More Context" to worry about.** Its commands come from the clipboard instead of the pattern textareas, but `cat` paths are checked and read through the exact same pipeline as the Context button: same `.gitignore` enforcement, same size/binary guards, same Markdown builder. `grep` runs in-process via [grepts](https://github.com/ahmadawais/grepts) with `.gitignore` respect forced on (`--no-ignore` is refused), and every matched file is re-checked through the same embedding guard before any of its lines are embedded. The only difference is what gets wrapped around the results: More Context emits the requested file and search sections alone, no project structure, "AI instructions", or "Prompt" sections, so a mid-conversation supplement pastes cleanly on top of what the chatbot already has.
+
+- **A slow `grep` gets a second chance before it fails.** Rather than running as one uninterruptible call against the full 15-second bound, a search is split into batches by combined file size, and only the current batch is held against however much of that bound is left. If the deadline is reached — before a batch starts or because one is still running — you're asked whether to continue; accepting doubles the remaining time and picks up from that same batch, while every batch that already finished keeps its results. Declining ends the search with the same error as before.
 
 - **`.git` is always excluded, at any depth**, regardless of `.gitignore` content — not just a top-level `.git` folder, but a nested one too (e.g. inside a submodule).
 
@@ -204,7 +207,7 @@ Paste-ready command blocks don't come only from you. The "AI instructions" secti
 Each non-empty line is one command, and the results appear in the order you pasted:
 
 - **`cat <path>`** reads a file, e.g. `cat src/main.py` or `cat "docs/my file.md"`. Paths are quote-aware, but each `cat` takes exactly one path. `cat this fails` is an error, not two files.
-- **`grep <flags> <pattern> [paths...]`** searches file contents using [grepts](https://github.com/ahmadawais/grepts), a TypeScript grep that runs in-process (no subprocess). Without paths it searches the whole project; with paths it searches only those files and directories. The textbook nested-quantifier shape (`(a+)+`) is refused outright, and every search runs under a 15-second wall-clock bound: a pattern that is slower than that is stopped with an error instead of freezing the editor, because a shape check cannot catch every slow pattern. Use `-F` for a literal search.
+- **`grep <flags> <pattern> [paths...]`** searches file contents using [grepts](https://github.com/ahmadawais/grepts), a TypeScript grep that runs in-process (no subprocess). Without paths it searches the whole project; with paths it searches only those files and directories. The textbook nested-quantifier shape (`(a+)+`) is refused outright, and every search runs under a 15-second wall-clock bound in total, split into batches by file size so a slow search doesn't fail all at once: the status area shows progress as a percentage while it runs, and if the time runs out before the search finishes, a dialog asks whether to keep going. Confirming doubles the remaining time and resumes from the batch that was in flight, keeping every earlier batch's results; declining stops the search with an error, same as before. Use `-F` for a literal search.
 - **`read-lines <path> <start_line> [end_line]`** reads a 1-indexed, inclusive range of lines from a file, e.g. `read-lines src/main.py 10 25`. `end_line` is optional. Omit it to read to the end of the file. If it's higher than the file's total line count, the range is simply clamped to the end of the file instead of erroring.
 
 For example, this clipboard block:
